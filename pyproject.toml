@@ -1,0 +1,21 @@
+[project]
+name = "hackathon_backend"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "nicolefemello", email = "nicfmello@gmail.com"},
+]
+dependencies = ["django>=5.2.3", "djangorestframework>=3.16.0"]
+requires-python = "==3.13.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.scripts]
+dev = "python manage.py runserver"
+migrate = "python manage.py migrate"
+makemigrations = "python manage.py makemigrations"
+createsuperuser = "python manage.py createsuperuser"
