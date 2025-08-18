@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-_=1!sw^q4(8(63@)9_i*^=88ob3fen(wm*w686#m%p64yhx2(^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -123,3 +123,18 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Redis / Celery configuration
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/1"
+
+# Optional: simple beat schedule to validate the worker periodically
+from celery.schedules import crontab  # type: ignore
+
+CELERY_BEAT_SCHEDULE = {
+    "heartbeat-test-task": {
+        "task": "core.users.app.tasks.test_task",
+        "schedule": 60.0,  # every 60 seconds
+    },
+}
