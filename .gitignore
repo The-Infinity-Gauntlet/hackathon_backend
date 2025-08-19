@@ -140,6 +140,9 @@ ENV/
 env.bak/
 venv.bak/
 
+#Redis
+dump.rdb
+
 # Spyder project settings
 .spyderproject
 .spyproject
