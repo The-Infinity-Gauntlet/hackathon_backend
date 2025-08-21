@@ -1,3 +1,12 @@
 from django.db import models
 
-# Create your models here.
+class Forecast(models.Model):
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    date = models.DateField()
+    flood = models.FloatField()
+    probability = models.FloatField()
+
+    class Meta:
+        unique_togetger = ("latitude", "longitude", "date")
+        verbose_name_plural = "Forecasts"
