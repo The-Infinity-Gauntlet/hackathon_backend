@@ -1,4 +1,5 @@
 from core.forecast.domain.repository import MachineLearningRepository
+from core.forecast.infra.models import Forecast
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -51,3 +52,10 @@ def runForecast(repo: MachineLearningRepository): # Aqui é onde realmente acont
     clf.fit(X_train, Y_train)
     Y_predict = clf.predict(X_test)
     Y_proba = clf.predict_proba(X_test)[:, 1]
+
+    Forecast.objects.update_or_create(
+        latitude = data.latitude,
+        longitude = data.longitude,
+        flood = data.flood,
+        probability = data.probability
+    )
