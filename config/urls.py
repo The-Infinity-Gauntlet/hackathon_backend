@@ -25,4 +25,7 @@ router = DefaultRouter()
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("core.users.presentation.urls")),
+    path("api/weather/", include("core.weather.presentation.urls")),
+    path("api/forecast/", include("core.forecast.presentation.urls")),
+    path("api/occurrences/", include("core.occurrences.presentation.urls"))
 ]
