@@ -1,7 +1,7 @@
 from django.db import models
 
 class Occurrence(models.Model):
-    datetime = models.DateTimeField()
+    date = models.DateField()
     class Situation(models.IntegerChoices):
         ALERTA = 1, "alerta"
         ATENCAO = 2, "atencao"
@@ -12,4 +12,4 @@ class Occurrence(models.Model):
     neighborhood = models.CharField(max_length=22)
 
     def __str__(self):
-        return f'{self.situation} - {self.datetime} - {self.neighborhood}'
+        return f'{self.situation} - {self.date} - {self.neighborhood}'
