@@ -10,7 +10,7 @@ class Weather(models.Model):
     humidity = models.FloatField(null=True)
     elevation = models.FloatField(null=True)
     pressure = models.FloatField(null=True)
-    river_disrcharge = models.FloatField(null=True)
+    river_discharge = models.FloatField(null=True)
 
     def __str__(self):
         return f'{self.date} - {self.neighborhood}'

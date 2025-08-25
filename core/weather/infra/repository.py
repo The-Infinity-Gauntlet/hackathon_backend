@@ -27,7 +27,7 @@ class WeatherRepositoryImpl(WeatherRepository):
                     "humidity": weather.get("humidity", [None]*len(weather["days"]))[i] or 0,
                     "elevation": elevation.get("elevation"),
                     "pressure": weather.get("pressure", [None]*len(weather["days"]))[i] or 0,
-                    "river_discharge": flood.get("river_discharge", [None]*len(weather["days"]))[i] or 0
+                    "river_discharge": flood.get("river_discharge", [None]*len(weather["days"]))[i] if i < len(flood.get("river_discharge", [None]*len(weather["days"]))) else 0
                 }
             )
 
