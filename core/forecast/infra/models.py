@@ -8,5 +8,5 @@ class Forecast(models.Model):
     probability = models.FloatField()
 
     class Meta:
-        unique_togetger = ("latitude", "longitude", "date")
+        unique_together = ("latitude", "longitude", "date")
         verbose_name_plural = "Forecasts"

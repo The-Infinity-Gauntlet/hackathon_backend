@@ -1,14 +1,14 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from core.weather.infra.models import Weather
-from core.weather.presentation.serializers import WeatherSerializer
+from core.weather.presentation.serializers.WeatherModelSerializer import WeatherModelSerializer
 from core.weather.app.services import WeatherService
 from core.weather.infra.repository import WeatherRepositoryImpl
 from rest_framework.response import Response
 
 class WeatherViewSet(ModelViewSet):
     queryset = Weather.objects.all()
-    serializer_class = WeatherSerializer
+    serializer_class = WeatherModelSerializer
 
     @action(detail=False, methods=["get"])
     def toFill(self, request):

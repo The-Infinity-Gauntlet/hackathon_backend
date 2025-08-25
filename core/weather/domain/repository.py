@@ -10,6 +10,10 @@ class WeatherRepository(ABC):
         pass
 
     @abstractmethod
+    def fillFlood(self, lat: float, lon: float):
+        pass
+
+    @abstractmethod
     def fillElevation(self, lat: float, lon: float):
         pass
 

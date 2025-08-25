@@ -2,11 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from datetime import datetime
 from core.weather.infra.services.queue import enqueueFillClimates
+#from core.weather.presentation.tasks.tasks import fillWeather
 
 class WeatherSearch(APIView):
     def post(self, request):
         try:
-            start = "2016-01-01"
+            start = "2010-01-01"
             end = datetime.now().strftime("%Y-%m-%d")
             total_tasks, _ = enqueueFillClimates(start, end)
             return Response({

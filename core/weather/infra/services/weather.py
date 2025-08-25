@@ -1,6 +1,6 @@
 import requests, time
 
-def fillClimate(lat, lon, start, end, retries=3, wait=60):
+def fillClimate(lat, lon, start, end, wait=60):
     url = 'https://archive-api.open-meteo.com/v1/archive'
     params = {
         "latitude": lat,
@@ -16,7 +16,7 @@ def fillClimate(lat, lon, start, end, retries=3, wait=60):
         "timezone": "America/Sao_Paulo"
     }
 
-    for attempt in range(retries):
+    while True:
         response = requests.get(url, params=params)
         data = response.json()
 
@@ -30,11 +30,14 @@ def fillClimate(lat, lon, start, end, retries=3, wait=60):
             }
         
         elif data.get("error") and "request limit exceeded" in data.get("reason", "").lower():
-            print(f"Limite de requisições atingido. Tentando novamente em {wait} segundos... ({attempt+1}/{retries})")
+            print(f"Limite de requisições atingido. Tentando novamente em {wait} segundos... ")
+            print("outro erro: ", data)
             time.sleep(wait)
         else:
             print(f"Erro inesperado na API: {data}")
-            break
+            time.sleep(wait)
+
+    return {"days": [], "rain": [], "temperature": [], "humidity": [], "pressure": []}
 
 def fillFutureClimate(lat, lon, start, end, retries=3, wait=60):
     url = 'https://api.open-meteo.com/v1/forecast'
@@ -69,11 +72,26 @@ def fillFutureClimate(lat, lon, start, end, retries=3, wait=60):
             print(f"Erro inesperado na API: {data}")
             break
 
+def fillFlood(lat: float, lon: float):
+    url = f"https://flood-api.open-meteo.com/v1/flood"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": ",".join([
+            "river_discharge"
+        ])
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    return {
+        "river_discharge": data["daily"]["river_discharge"]
+    }
+
 def fillElevation(lat, lon):
     url = f'https://api.open-elevation.com/api/v1/lookup'
     params = {"locations": f'{lat}, {lon}'}
     response = requests.get(url, params=params)
     data = response.json()
     return {
-        "elevation": data["results"][0]["elevation/"]
+        "elevation": data["results"][0]["elevation"]
     }
