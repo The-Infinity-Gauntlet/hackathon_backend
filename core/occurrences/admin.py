@@ -1,3 +1,6 @@
 from django.contrib import admin
+from core.occurrences.infra.models import Occurrence
 
-# Register your models here.
+@admin.register(Occurrence)
+class Occurrence(admin.ModelAdmin):
+    list_display = ('date', 'neighborhood')

@@ -14,22 +14,25 @@ class WeatherRepositoryImpl(WeatherRepository):
         future = self.fillFutureWeather(lat, lon)
         flood = self.fillFlood(lat, lon)
         elevation = self.fillElevation(lat, lon)
+        climates = []
 
         for i in range(len(weather["days"])): # para cada dia
-            Weather.objects.update_or_create(
-                date=weather["days"][i],
-                neighborhood=neighborhood,
-                defaults={
-                    "latitude": lat,
-                    "longitude": lon,
-                    "rain": weather.get("rain", [None]*len(weather["days"]))[i] or 0, # se não tiver "rain", retorne None para cada dia
-                    "temperature": weather.get("temperature", [None]*len(weather["days"]))[i] or 0,
-                    "humidity": weather.get("humidity", [None]*len(weather["days"]))[i] or 0,
-                    "elevation": elevation.get("elevation"),
-                    "pressure": weather.get("pressure", [None]*len(weather["days"]))[i] or 0,
-                    "river_discharge": flood.get("river_discharge", [None]*len(weather["days"]))[i] if i < len(flood.get("river_discharge", [None]*len(weather["days"]))) else 0
-                }
+            climates.append(
+                Weather(
+                    date=weather["days"][i],
+                    neighborhood=neighborhood,
+                    latitude=lat,
+                    longitude=lon,
+                    rain=weather.get("rain", [None]*len(weather["days"]))[i] or 0, # se não tiver "rain", retorne None para cada dia
+                    temperature=weather.get("temperature", [None]*len(weather["days"]))[i] or 0,
+                    humidity=weather.get("humidity", [None]*len(weather["days"]))[i] or 0,
+                    elevation=elevation.get("elevation"),
+                    pressure=weather.get("pressure", [None]*len(weather["days"]))[i] or 0,
+                    river_discharge=flood.get("river_discharge", [None]*len(weather["days"]))[i] if i < len(flood.get("river_discharge", [None]*len(weather["days"]))) else 0
+                )
             )
+        
+        Weather.objects.bulk_create(climates, ignore_conflicts=True)
 
         return {
             "days": weather.get("days", []),
