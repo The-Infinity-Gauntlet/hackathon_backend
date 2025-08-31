@@ -270,8 +270,6 @@ pyrightconfig.json
 /core/flood_camera_monitoring/data
 
 # ML models and checkpoints (do not commit large binaries)
-/core/flood_camera_monitoring/infra/machine_model/*.pth
-/core/flood_camera_monitoring/infra/machine_model/*.pt
 /media/models/
 
 
