@@ -1,0 +1,28 @@
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# System libs needed by OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install runtime Python deps (CPU-only torch/vision)
+COPY docker/requirements.runtime.txt /tmp/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Copy only what’s needed at runtime to minimize context
+COPY manage.py ./
+COPY config ./config
+COPY core ./core
+
+EXPOSE 8000
+
+ENV DJANGO_SETTINGS_MODULE=config.settings
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

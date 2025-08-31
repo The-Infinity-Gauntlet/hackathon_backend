@@ -266,4 +266,8 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# Flood camera monitoring train data
+/core/flood_camera_monitoring/data
+
+
 # End of https://www.toptal.com/developers/gitignore/api/python,django
