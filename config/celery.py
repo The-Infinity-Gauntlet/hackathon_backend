@@ -22,3 +22,9 @@ try:
     __import__("core.users.app.tasks")
 except Exception:  # pragma: no cover - best effort
     pass
+
+# Ensure flood monitoring tasks are registered
+try:
+    __import__("core.flood_camera_monitoring.infra.tasks")
+except Exception:  # pragma: no cover - best effort
+    pass

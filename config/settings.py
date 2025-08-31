@@ -49,7 +49,9 @@ INSTALLED_APPS = [
     "core",
     "core.weather",
     "core.occurrences",
-    "core.forecast"
+    "core.forecast" "core.flood_camera_monitoring",
+    "core.uploader",
+    "core.addressing",
 ]
 
 
@@ -86,12 +88,31 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Allow selecting DB engine by env. Defaults to SQLite for local/dev simplicity.
+DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+if DB_ENGINE == "postgres":
+    # PostgreSQL configuration via env, matching docker-compose defaults
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "hackathon"),
+            "USER": os.getenv("DB_USER", "hackathon"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "hackathon123"),
+            "HOST": os.getenv("DB_HOST", "db"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
     }
-}
+else:
+    # SQLite (default)
+    # Allow overriding the SQLite file path via env (useful to bind a named volume in Docker)
+    DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", str(BASE_DIR / "db.sqlite3"))
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": DB_SQLITE_PATH,
+        }
+    }
 
 
 # Password validation
@@ -130,6 +151,10 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Media (uploads)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -144,8 +169,35 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1
 from celery.schedules import crontab  # type: ignore
 
 CELERY_BEAT_SCHEDULE = {
-    "heartbeat-test-task": {
-        "task": "core.users.app.tasks.test_task",
-        "schedule": 60.0,  # every 60 seconds
+    "flood-analyze-all-cameras": {
+        "task": "core.flood_camera_monitoring.infra.tasks.analyze_all_cameras_task",
+        "schedule": 300.00,
+    },
+}
+
+# Logging: ensure our modules and Celery log to console at INFO level
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        }
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+        "celery": {"handlers": ["console"], "level": "INFO"},
+        # Parent logger for all flood monitoring modules
+        "core.flood_camera_monitoring": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
