@@ -1,4 +1,5 @@
 from django.db import models
+from core.occurrences.infra.models import Occurrence
 
 class Weather(models.Model):
     date = models.DateField()
@@ -11,6 +12,7 @@ class Weather(models.Model):
     elevation = models.FloatField(null=True)
     pressure = models.FloatField(null=True)
     river_discharge = models.FloatField(null=True)
+    occurrence = models.ForeignKey(Occurrence, on_delete=models.PROTECT, related_name="occurrence", null=True, blank=True)
 
     class Meta:
         constraints = [

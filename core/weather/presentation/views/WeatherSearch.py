@@ -7,7 +7,7 @@ from core.weather.infra.services.queue import enqueueFillClimates
 class WeatherSearch(APIView):
     def post(self, request):
         try:
-            start = "2010-01-01"
+            start = "2025-08-25"
             end = datetime.now().strftime("%Y-%m-%d")
             total_tasks, _ = enqueueFillClimates(start, end)
             return Response({

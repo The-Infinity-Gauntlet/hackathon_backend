@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from core.forecast.presentation.tasks.ForecastTasks import forecast
 from core.forecast.infra.models import Forecast
-from core.forecast.presentation.serializers import ForecastSerializer
+from core.forecast.presentation.serializers.ForecastSerializer import ForecastSerializer
 
 class PredictView(APIView):
     def post(self, request):

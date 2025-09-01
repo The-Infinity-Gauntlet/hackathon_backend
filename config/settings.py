@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "core",
     "core.weather",
-    "core.occurrences"
+    "core.occurrences",
+    "core.forecast"
 ]
 
 

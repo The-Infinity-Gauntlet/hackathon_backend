@@ -1,6 +1,6 @@
 from rest_framework.viewsets import ModelViewSet
 from core.forecast.infra.models import Forecast
-from core.forecast.presentation.serializers import ForecastSerializer
+from core.forecast.presentation.serializers.ForecastSerializer import ForecastSerializer
 
 class ForecastViewSet(ModelViewSet):
     queryset = Forecast.objects.all()

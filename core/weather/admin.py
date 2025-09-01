@@ -5,4 +5,4 @@ from core.weather.infra.models import Weather
 class WeatherAdmin(admin.ModelAdmin):
     list_display = ("date", "latitude", "longitude", "neighborhood", "rain", "temperature", "humidity", "elevation")
     list_filter = ("date",)
-    search_fields = ("latitude", "longitude")
+    search_fields = ("latitude", "longitude", "neighborhood", "date")
