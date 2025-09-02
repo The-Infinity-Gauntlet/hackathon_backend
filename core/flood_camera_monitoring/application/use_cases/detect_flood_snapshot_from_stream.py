@@ -1,7 +1,9 @@
 import time
 from dataclasses import dataclass
 
-from core.flood_camera_monitoring.application.dto.predict_response import PredictResponse
+from core.flood_camera_monitoring.application.dto.predict_response import (
+    PredictResponse,
+)
 from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
@@ -25,6 +27,7 @@ class DetectFloodSnapshotFromStream:
                     assessment = self.classifier.predict(img)
                     return PredictResponse(
                         is_flooded=assessment.is_flooded,
+                        severity=getattr(assessment, "severity", None),
                         confidence=assessment.confidence,
                         probabilities=assessment.probabilities,
                         meta=request.meta,

@@ -35,7 +35,6 @@ from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
 from core.flood_camera_monitoring.infra.models import Camera
-from core.addressing.infra.models import Neighborhood, Region
 import uuid
 from config.pagination import DefaultPageNumberPagination
 from core.common.mixins import SafeOrderingMixin
@@ -133,7 +132,11 @@ class HealthcheckView(APIView):
                 model_size = checkpoint_path.stat().st_size
             except Exception:
                 model_size = 0
-        model_ok = bool(model_exists and (model_size >= 1024 * 1024) and not looks_like_lfs_pointer(checkpoint_path))
+        model_ok = bool(
+            model_exists
+            and (model_size >= 1024 * 1024)
+            and not looks_like_lfs_pointer(checkpoint_path)
+        )
 
         # 2) DB
         db_ok = False
@@ -176,7 +179,12 @@ class HealthcheckView(APIView):
                 **({"error": redis_error} if redis_error else {}),
             },
         }
-        return Response(payload, status=status.HTTP_200_OK if all_ok else status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(
+            payload,
+            status=(
+                status.HTTP_200_OK if all_ok else status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+        )
 
 
 class AnalyzeAllCamerasView(APIView):
@@ -255,10 +263,10 @@ class PredictAllCamerasView(APIView):
                     # ignore sort errors for robustness
                     pass
 
-    # DRF pagination for consistency with other list endpoints
-    paginator = DefaultPageNumberPagination()
-    page_items = paginator.paginate_queryset(data, request, view=self)
-    return paginator.get_paginated_response(page_items)
+        # DRF pagination for consistency with other list endpoints
+        paginator = DefaultPageNumberPagination()
+        page_items = paginator.paginate_queryset(data, request, view=self)
+        return paginator.get_paginated_response(page_items)
 
 
 class CamerasListView(SafeOrderingMixin, APIView):

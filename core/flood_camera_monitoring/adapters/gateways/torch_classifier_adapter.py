@@ -22,6 +22,7 @@ from core.flood_camera_monitoring.domain.entities import (
     FloodAssessment,
     FloodProbabilities,
     ImageInput,
+    FloodSeverity,
 )
 from core.flood_camera_monitoring.domain.repository import FloodClassifierPort
 
@@ -274,5 +275,8 @@ class TorchFloodClassifier(FloodClassifierPort):
             normal=pct_normal, flooded=pct_flooded, medium=pct_medium
         )
         return FloodAssessment(
-            confidence=confidence, is_flooded=is_flooded, probabilities=probabilities
+            confidence=confidence,
+            is_flooded=is_flooded,
+            severity=severity,
+            probabilities=probabilities,
         )

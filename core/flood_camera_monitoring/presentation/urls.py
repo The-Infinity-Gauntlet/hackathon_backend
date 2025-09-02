@@ -10,7 +10,7 @@ from core.flood_camera_monitoring.presentation.views import (
 
 urlpatterns = [
     path(
-        "stream/snapshot",
+        "predict/snapshot",
         StreamSnapshotDetectView.as_view(),
         name="stream-snapshot-detect",
     ),
