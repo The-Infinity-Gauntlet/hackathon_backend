@@ -35,7 +35,6 @@ from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
 from core.flood_camera_monitoring.infra.models import Camera
-from core.addressing.infra.models import Neighborhood, Region
 import uuid
 from config.pagination import DefaultPageNumberPagination
 from core.common.mixins import SafeOrderingMixin

@@ -24,6 +24,10 @@ class AnalyzeAllCamerasService:
     # Persist only when there's flood risk with flooded prob >= min_confidence
     # Defaults can be overridden by environment variables
     min_confidence: float = float(os.getenv("FLOOD_MIN_CONFIDENCE", "10.0"))
+    # Additionally, persist when medium probability is high enough (e.g., 80%)
+    medium_min_confidence: float = float(
+        os.getenv("FLOOD_MEDIUM_MIN_CONFIDENCE", "80.0")
+    )
     sample_frames: int = int(os.getenv("FLOOD_SAMPLE_FRAMES", "3"))
     sample_interval_ms: int = int(os.getenv("FLOOD_SAMPLE_INTERVAL_MS", "150"))
     warmup_drops: int = int(os.getenv("FLOOD_WARMUP_DROPS", "2"))
@@ -93,13 +97,15 @@ class AnalyzeAllCamerasService:
 
             # Predict for all captured frames and aggregate
             assessments: list[PredictResponse] = []
-            best_idx = 0
+            best_idx_flooded = 0
+            best_idx_medium = 0
             best_flooded = -1.0
             flooded_series: list[float] = []
             for idx, fb in enumerate(frames):
                 a = clf.predict(fb)
                 assessments.append(a)
                 flooded = float(a.probabilities.flooded)
+                medium = float(getattr(a.probabilities, "medium", 0.0))
                 if flooded > best_flooded:
                     best_flooded = flooded
                     best_idx = idx
@@ -108,6 +114,9 @@ class AnalyzeAllCamerasService:
             mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
                 assessments
             )
+            mean_medium = sum(
+                float(getattr(a.probabilities, "medium", 0.0)) for a in assessments
+            ) / len(assessments)
             mean_flooded = sum(
                 float(a.probabilities.flooded) for a in assessments
             ) / len(assessments)
@@ -123,10 +132,9 @@ class AnalyzeAllCamerasService:
                 mean_flooded = (mean_flooded / total) * 100.0
                 mean_medium = 100.0 - (mean_normal + mean_flooded)
 
-            # Decide using best or mean flooded probability
+            # Decide triggers
             decision_flooded = max(best_flooded, mean_flooded)
-            chosen = assessments[best_idx]
-            chosen_bytes = frames[best_idx]
+            decision_medium = float(mean_medium)
 
             # Compute early-warning (medium) indicators
             strong = decision_flooded >= float(self.strong_min)
@@ -160,7 +168,7 @@ class AnalyzeAllCamerasService:
                             is_flooded=True,
                             medium=False,
                             # Store the flooded probability used for the decision as confidence
-                            confidence=decision_flooded,
+                            confidence=trigger_conf,
                             prob_normal=mean_normal,
                             prob_flooded=mean_flooded,
                             prob_medium=mean_medium,
@@ -187,7 +195,7 @@ class AnalyzeAllCamerasService:
                             image=None,
                         )
                 saved += 1
-                status = "FLOOD_SAVE"
+                status = "MEDIUM_SAVE" if trigger == "medium" else "FLOOD_SAVE"
                 logger.info(
                     (
                         "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
@@ -197,6 +205,7 @@ class AnalyzeAllCamerasService:
                     status,
                     best_flooded,
                     mean_flooded,
+                    mean_medium,
                     mean_normal,
                     mean_medium,
                     float(chosen.confidence),
@@ -265,6 +274,7 @@ class AnalyzeAllCamerasService:
                     status,
                     best_flooded,
                     mean_flooded,
+                    mean_medium,
                     mean_normal,
                     mean_medium,
                     float(decision_flooded),
@@ -278,8 +288,9 @@ class AnalyzeAllCamerasService:
                     camera_label,
                     getattr(cam, "video_hls", ""),
                     status,
-                    f"{float(decision_flooded):.2f}",
+                    f"{float(max(decision_flooded, decision_medium)):.2f}",
                     f"{mean_normal:.2f}",
+                    f"{mean_medium:.2f}",
                     f"{mean_flooded:.2f}",
                     f"{mean_medium:.2f}",
                 )
