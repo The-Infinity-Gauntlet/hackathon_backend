@@ -56,10 +56,11 @@ def fillFutureClimate(lat, lon, start, end, retries=3, wait=60):
     for attempt in range(retries):
         response = requests.get(url, params=params)
         data = response.json()
+        days = [d.split("T")[0] for d in data["hourly"]["time"]]
 
         if "hourly" in data:
             return {
-                "days": data["hourly"]["time"],
+                "days": days,
                 "rain": data["hourly"]["precipitation"],
                 "temperature": data["hourly"]["temperature_2m"],
                 "humidity": data["hourly"]["relative_humidity_2m"]

@@ -4,38 +4,47 @@ from core.weather.infra.services.weather import fillClimate as fillClimateServic
 import pandas as pd
 from datetime import date, timedelta
 
-hoje = date.today()
-forecast_start = hoje - timedelta(days=3)
-forecast_end = hoje + timedelta(days=7)
+today = date.today()
+forecast_start = today - timedelta(days=3)
+forecast_end = today + timedelta(days=7)
 
 class WeatherRepositoryImpl(WeatherRepository):
     def fillAll(self, lat, lon, neighborhood, start, end):
-        weather = self.fillWeather(lat, lon, start, end)
+        weather = self.fillWeather(lat, lon, start, min(end, today))
         future = self.fillFutureWeather(lat, lon)
         flood = self.fillFlood(lat, lon)
         elevation = self.fillElevation(lat, lon)
         climates = []
 
+        all_days = weather["days"] + future["days"]
+        for i, day in enumerate(all_days):
+            if i > len(weather["days"]):
+                source = future
+                idx = i - len(weather["days"])
+            else:
+                source = weather
+                idx = i
+
         for i in range(len(weather["days"])): # para cada dia
             climates.append(
                 Weather(
-                    date=weather["days"][i],
+                    date=day,
                     neighborhood=neighborhood,
                     latitude=lat,
                     longitude=lon,
-                    rain=weather.get("rain", [None]*len(weather["days"]))[i] or 0, # se não tiver "rain", retorne None para cada dia
-                    temperature=weather.get("temperature", [None]*len(weather["days"]))[i] or 0,
-                    humidity=weather.get("humidity", [None]*len(weather["days"]))[i] or 0,
+                    rain=source.get("rain", [None]*len(weather["days"]))[i] or future.get("rain", [None]*len(future["days"]))[i] or 0, # se não tiver "rain", retorne None para cada dia
+                    temperature=source.get("temperature", [None]*len(source["days"]))[i] or future.get("temperature", [None]*len(future["days"]))[i] or 0,
+                    humidity=source.get("humidity", [None]*len(source["days"]))[i] or future.get("humidity", [None]*len(future["days"]))[i] or 0,
                     elevation=elevation.get("elevation"),
-                    pressure=weather.get("pressure", [None]*len(weather["days"]))[i] or 0,
-                    river_discharge=flood.get("river_discharge", [None]*len(weather["days"]))[i] if i < len(flood.get("river_discharge", [None]*len(weather["days"]))) else 0
+                    pressure=source.get("pressure", [None]*len(weather["days"]))[i] or future.get("pressure", [None]*len(future["days"]))[i] or 0,
+                    river_discharge=flood.get("river_discharge", [None]*len(weather["days"]))[i] or 0
                 )
             )
         
         Weather.objects.bulk_create(climates, ignore_conflicts=True)
 
         return {
-            "days": weather.get("days", []),
+            "days": all_days,
             "rain": weather.get("rain", []),
             "temp": weather.get("temperature", []),
             "humidity": weather.get("humidity", []),

@@ -1,7 +1,7 @@
 import os, geopandas as gpd
 from decimal import getcontext, Decimal
 from shapely.geometry import Point, Polygon, MultiPolygon
-from core.weather.presentation.tasks.tasks import fillWeather
+from core.weather.presentation.tasks.fillWeatherTask import fillWeather
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 file = os.path.join(BASE_DIR, "fixtures", "neighborhoods.geojson")
@@ -15,16 +15,6 @@ def enqueueFillClimates(start: str, end: str):
     step = Decimal("0.01")
 
     max_points = 10000
-    neighborhoods_to_update = [
-        "Santa Catarina",
-        "Santo Antônio",
-        "São Marcos",
-        "Ulysses Guimarães",
-        "Vila Cubatão",
-        "Vila Nova",
-        "Zona Industrial 1",
-        "Zona Industrial 2"
-    ]
 
     for idx, nb in neighborhoods.iterrows():
         if "bairro" in nb:
@@ -35,7 +25,7 @@ def enqueueFillClimates(start: str, end: str):
             print(f'Bairro não encontrado em {idx}')
             continue
 
-        if not neighborhood or neighborhood not in neighborhoods_to_update:
+        if not neighborhood:
             print("Bairro completo: ", neighborhood)
             continue
     

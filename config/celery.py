@@ -14,6 +14,8 @@ app.conf.result_backend = (
 )
 app.conf.timezone = os.environ.get("TZ", "America/Sao_Paulo")
 
+app.conf.beat_scheduler = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 
 # Ensure modules are imported in case autodiscover misses nested packages
 try:
