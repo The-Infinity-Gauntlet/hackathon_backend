@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -43,8 +44,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_celery_beat",
     "rest_framework",
     "core",
+    "core.weather",
+    "core.occurrences",
+    "core.forecast"
 ]
 
 
