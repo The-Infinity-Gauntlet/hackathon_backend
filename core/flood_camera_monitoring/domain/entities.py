@@ -53,10 +53,12 @@ class Camera:
 class FloodProbabilities:
     """Probabilidades por classe no domínio.
     Valores esperados em 0.0..100.0 (percentual) para simplicidade.
+    Pode incluir a classe intermediária 'medium' quando o modelo for 3-classes.
     """
 
     normal: float
     flooded: float
+    medium: float
 
 
 @dataclass(frozen=True)

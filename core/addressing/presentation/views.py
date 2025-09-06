@@ -12,7 +12,6 @@ class NeighborhoodGeoJSONView(APIView):
         region = request.query_params.get("region")
         all_param = request.query_params.get("all")
 
-        # Validate and normalize 'all' param
         def _parse_bool(val):
             if val is None:
                 return None

@@ -1,6 +1,9 @@
 from core.flood_camera_monitoring.application.use_cases.analyze_all_cameras import (
     AnalyzeAllCamerasService,
 )
+from core.flood_camera_monitoring.application.use_cases.predict_all_cameras import (
+    PredictAllCamerasService,
+)
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -27,6 +30,8 @@ from core.flood_camera_monitoring.application.dto.stream_request import (
 from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
+from core.flood_camera_monitoring.infra.models import Camera
+from core.addressing.infra.models import Neighborhood, Region
 
 
 class StreamSnapshotDetectView(APIView):
@@ -56,9 +61,20 @@ class StreamSnapshotDetectView(APIView):
             {
                 "is_flooded": res.is_flooded,
                 "confidence": res.confidence,
+                # Espelha normal e medium no topo para compatibilidade com PredictAll
+                "normal": res.probabilities.normal,
+                "prob_medium": getattr(res.probabilities, "medium", 0.0),
+                # medium flag agora deriva da maior probabilidade entre medium e flooded abaixo de strong threshold
+                "medium": bool(
+                    getattr(res.probabilities, "medium", 0.0) >= 25.0
+                    and getattr(res.probabilities, "medium", 0.0)
+                    < 60.0
+                    and res.probabilities.flooded < 60.0
+                ),
                 "probabilities": {
                     "normal": res.probabilities.normal,
                     "flooded": res.probabilities.flooded,
+                    "medium": getattr(res.probabilities, "medium", 0.0),
                 },
             }
         )
@@ -87,9 +103,18 @@ class StreamBatchDetectView(APIView):
                 {
                     "is_flooded": res.is_flooded,
                     "confidence": res.confidence,
+                    "normal": res.probabilities.normal,
+                    "prob_medium": getattr(res.probabilities, "medium", 0.0),
+                    # medium flag baseada na probabilidade medium direta
+                    "medium": bool(
+                        getattr(res.probabilities, "medium", 0.0) >= 25.0
+                        and getattr(res.probabilities, "medium", 0.0) < 60.0
+                        and res.probabilities.flooded < 60.0
+                    ),
                     "probabilities": {
                         "normal": res.probabilities.normal,
                         "flooded": res.probabilities.flooded,
+                        "medium": getattr(res.probabilities, "medium", 0.0),
                     },
                     "meta": res.meta,
                 }
@@ -108,3 +133,77 @@ class AnalyzeAllCamerasView(APIView):
         service = AnalyzeAllCamerasService()
         saved = service.run()
         return Response({"saved": saved})
+
+
+class PredictAllCamerasView(APIView):
+    """HTTP endpoint para retornar a predição de todas as câmeras ativas.
+
+    Não persiste nada; retorna lista com probabilidades (inclui 'normal').
+    """
+
+    def get(self, request, *args, **kwargs):
+        service = PredictAllCamerasService()
+        data = service.run()
+        # espelhar o campo "normal" também no topo de cada item
+        for item in data:
+            item["normal"] = float(item.get("probabilities", {}).get("normal", 0.0))
+            # também espelha a probabilidade de medium no topo para facilitar filtros/monitoramento
+            item["prob_medium"] = float(
+                item.get("probabilities", {}).get("medium", 0.0)
+            )
+        return Response({"results": data})
+
+
+class CamerasListView(APIView):
+    """Lista todas as câmeras com possibilidade de filtro por bairro (neighborhood_id) ou região (region_id).
+    Parâmetros de query:
+      - neighborhood_id: UUID de Neighborhood
+      - region_id: UUID de Region (retorna câmeras cujos endereços pertencem a bairros dessa região)
+    Ambos podem ser combinados; se ambos presentes, aplica interseção.
+    """
+
+    def get(self, request, *args, **kwargs):
+        qs = Camera.objects.select_related("address", "address__neighborhood", "address__neighborhood__region")
+        neighborhood_id = request.query_params.get("neighborhood_id")
+        region_id = request.query_params.get("region_id")
+
+        if neighborhood_id:
+            qs = qs.filter(address__neighborhood_id=neighborhood_id)
+        if region_id:
+            qs = qs.filter(address__neighborhood__region_id=region_id)
+
+        data = []
+        for cam in qs.iterator():
+            addr = cam.address
+            neigh = addr.neighborhood if addr else None
+            reg = neigh.region if neigh else None
+            data.append(
+                {
+                    "id": str(cam.id),
+                    "description": cam.description,
+                    "status": cam.get_status_display(),
+                    "video_url": cam.video_url,
+                    "address": {
+                        "id": str(addr.id) if addr else None,
+                        "street": addr.street if addr else None,
+                        "number": addr.number if addr else None,
+                        "city": addr.city if addr else None,
+                        "state": addr.state if addr else None,
+                        "country": addr.country if addr else None,
+                        "zipcode": addr.zipcode if addr else None,
+                        "latitude": addr.latitude if addr else None,
+                        "longitude": addr.longitude if addr else None,
+                    } if addr else None,
+                    "neighborhood": {
+                        "id": str(neigh.id),
+                        "name": neigh.name,
+                        "city": neigh.city,
+                    } if neigh else None,
+                    "region": {
+                        "id": str(reg.id),
+                        "name": reg.name,
+                        "city": reg.city,
+                    } if reg else None,
+                }
+            )
+        return Response({"results": data, "count": len(data)})

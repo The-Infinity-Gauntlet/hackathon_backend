@@ -28,6 +28,13 @@ class AnalyzeAllCamerasService:
     sample_interval_ms: int = int(os.getenv("FLOOD_SAMPLE_INTERVAL_MS", "150"))
     warmup_drops: int = int(os.getenv("FLOOD_WARMUP_DROPS", "2"))
 
+    # Early-warning (medium) configuration
+    strong_min: float = float(os.getenv("FLOOD_STRONG_MIN", "60.0"))
+    medium_min: float = float(os.getenv("FLOOD_MEDIUM_MIN", "25.0"))
+    medium_max: float = float(os.getenv("FLOOD_MEDIUM_MAX", "60.0"))
+    trend_min_delta: float = float(os.getenv("FLOOD_TREND_MIN_DELTA", "10.0"))
+    min_medium_frames: int = int(os.getenv("FLOOD_MIN_MEDIUM_FRAMES", "2"))
+
     def run(self) -> int:
         """
         Analyze all ACTIVE cameras and persist a record with the captured image
@@ -73,6 +80,7 @@ class AnalyzeAllCamerasService:
             assessments: list[PredictResponse] = []
             best_idx = 0
             best_flooded = -1.0
+            flooded_series: list[float] = []
             for idx, fb in enumerate(frames):
                 a = clf.predict(fb)
                 assessments.append(a)
@@ -80,20 +88,49 @@ class AnalyzeAllCamerasService:
                 if flooded > best_flooded:
                     best_flooded = flooded
                     best_idx = idx
+                flooded_series.append(flooded)
 
-            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
-                assessments
-            )
-            mean_flooded = sum(
-                float(a.probabilities.flooded) for a in assessments
-            ) / len(assessments)
+            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(assessments)
+            mean_flooded = sum(float(a.probabilities.flooded) for a in assessments) / len(assessments)
+            try:
+                mean_medium = sum(float(a.probabilities.medium) for a in assessments) / len(assessments)
+            except Exception:
+                mean_medium = 0.0
+            # Normaliza para somar 100 (2 ou 3 classes)
+            total = mean_normal + mean_flooded + mean_medium
+            if total > 0:
+                mean_normal = (mean_normal / total) * 100.0
+                mean_flooded = (mean_flooded / total) * 100.0
+                mean_medium = 100.0 - (mean_normal + mean_flooded)
 
             # Decide using best or mean flooded probability
             decision_flooded = max(best_flooded, mean_flooded)
             chosen = assessments[best_idx]
             chosen_bytes = frames[best_idx]
 
-            if decision_flooded >= float(self.min_confidence):
+            # Compute early-warning (medium) indicators
+            strong = decision_flooded >= float(self.strong_min)
+            # rising trend if last increases sufficiently from first
+            rising_trend = False
+            if len(flooded_series) >= 2:
+                rising_trend = (flooded_series[-1] - flooded_series[0]) >= float(
+                    self.trend_min_delta
+                )
+            medium_band = (
+                float(self.medium_min) <= mean_flooded < float(self.medium_max)
+            )
+            medium_frames = sum(
+                1
+                for v in flooded_series
+                if float(self.medium_min) <= v < float(self.strong_min)
+            )
+            medium_condition = (not strong) and (
+                medium_band
+                or medium_frames >= int(self.min_medium_frames)
+                or (rising_trend and flooded_series[-1] >= float(self.medium_min))
+            )
+
+            if strong:
                 # Try creating with image; if fails (e.g., permission), save without image
                 try:
                     with transaction.atomic():
@@ -101,10 +138,12 @@ class AnalyzeAllCamerasService:
                             camera=cam,
                             # Business rule: mark as flooded when flooded prob crosses threshold
                             is_flooded=True,
+                            medium=False,
                             # Store the flooded probability used for the decision as confidence
                             confidence=decision_flooded,
                             prob_normal=mean_normal,
                             prob_flooded=mean_flooded,
+                            prob_medium=mean_medium,
                             # Save the exact frame used for the decision with a unique name
                             image=ContentFile(
                                 chosen_bytes, name=f"{cam.id}-{int(time.time())}.jpg"
@@ -120,9 +159,11 @@ class AnalyzeAllCamerasService:
                         FloodDetectionRecord.objects.create(
                             camera=cam,
                             is_flooded=True,
+                            medium=False,
                             confidence=decision_flooded,
                             prob_normal=mean_normal,
                             prob_flooded=mean_flooded,
+                            prob_medium=mean_medium,
                             image=None,
                         )
                 saved += 1
@@ -130,7 +171,7 @@ class AnalyzeAllCamerasService:
                 logger.info(
                     (
                         "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
-                        "mean_normal=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
+                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
                     ),
                     getattr(cam, "id", None),
                     status,
@@ -139,14 +180,65 @@ class AnalyzeAllCamerasService:
                     mean_normal,
                     float(chosen.confidence),
                     len(assessments),
-                    float(self.min_confidence),
+                    float(self.strong_min),
+                )
+            elif medium_condition:
+                # Persist early-warning record (medium)
+                try:
+                    with transaction.atomic():
+                        FloodDetectionRecord.objects.create(
+                            camera=cam,
+                            is_flooded=False,
+                            medium=True,
+                            confidence=decision_flooded,
+                            prob_normal=mean_normal,
+                            prob_flooded=mean_flooded,
+                            prob_medium=mean_medium,
+                            image=ContentFile(
+                                chosen_bytes, name=f"{cam.id}-{int(time.time())}.jpg"
+                            ),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Could not save image for camera id=%s (medium, saving without image): %s",
+                        getattr(cam, "id", None),
+                        e,
+                    )
+                    with transaction.atomic():
+                        FloodDetectionRecord.objects.create(
+                            camera=cam,
+                            is_flooded=False,
+                            medium=True,
+                            confidence=decision_flooded,
+                            prob_normal=mean_normal,
+                            prob_flooded=mean_flooded,
+                            prob_medium=mean_medium,
+                            image=None,
+                        )
+                saved += 1
+                status = "MEDIUM_SAVE"
+                logger.info(
+                    (
+                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
+                        "mean_normal=%.2f | mean_medium=%.2f | frames=%d | criteria={band:%s,count:%d,trend:%s}"
+                    ),
+                    getattr(cam, "id", None),
+                    status,
+                    best_flooded,
+                    mean_flooded,
+                    mean_normal,
+                    len(assessments),
+                    
+                    str(medium_band),
+                    medium_frames,
+                    str(rising_trend),
                 )
             else:
                 status = "NO_FLOOD"
                 logger.info(
                     (
                         "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
-                        "mean_normal=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
+                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
                     ),
                     getattr(cam, "id", None),
                     status,
@@ -155,7 +247,7 @@ class AnalyzeAllCamerasService:
                     mean_normal,
                     float(decision_flooded),
                     len(assessments),
-                    float(self.min_confidence),
+                    float(self.strong_min),
                 )
 
             # Adiciona linha da tabela
@@ -168,13 +260,14 @@ class AnalyzeAllCamerasService:
                     f"{float(decision_flooded):.2f}",
                     f"{mean_normal:.2f}",
                     f"{mean_flooded:.2f}",
+                    f"{mean_medium:.2f}",
                 )
             )
 
         # Imprime uma tabela de resumo ao final
         try:
             table = self._format_table(
-                ["Câmera", "Endereço", "Status", "Conf(%)", "Normal(%)", "Alagado(%)"],
+                ["Câmera", "Endereço", "Status", "Conf(%)", "Normal(%)", "Alagado(%)", "Médio(%)"],
                 rows,
                 max_widths={"Endereço": 70},
             )

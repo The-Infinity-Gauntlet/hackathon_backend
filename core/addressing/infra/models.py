@@ -6,14 +6,13 @@ class Address(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     street = models.CharField(max_length=255)
     number = models.CharField(max_length=50, blank=True)
-    neighborhood = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=120)
     state = models.CharField(max_length=80, blank=True)
     country = models.CharField(max_length=120, default="Brazil")
     zipcode = models.CharField(max_length=32, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
-    neighborhood_ref = models.ForeignKey(
+    neighborhood = models.ForeignKey(
         "Neighborhood",
         null=True,
         blank=True,
@@ -29,7 +28,6 @@ class Address(models.Model):
             models.Index(fields=["zipcode"]),
             models.Index(fields=["neighborhood"]),
             models.Index(fields=["latitude", "longitude"]),
-            models.Index(fields=["neighborhood_ref"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover

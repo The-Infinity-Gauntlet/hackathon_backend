@@ -17,6 +17,7 @@ class AddressAdmin(admin.ModelAdmin):
     search_fields = ("street", "city", "zipcode")
     list_filter = ("city", "state", "country")
     list_per_page = 25
+    autocomplete_fields = ("neighborhood",)
 
 
 @admin.register(Neighborhood)

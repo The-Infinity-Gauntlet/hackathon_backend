@@ -9,11 +9,19 @@ class CameraAdmin(admin.ModelAdmin):
         "status",
         "video_url",
         "description",
-        "address_id",
+        "address",
         "updated_at",
     )
     list_filter = ("status",)
-    search_fields = ("id", "video_url", "description", "address_id")
+    search_fields = (
+        "id",
+        "video_url",
+        "description",
+        "address__id",
+        "address__street",
+        "address__city",
+    )
+    autocomplete_fields = ("address",)
     list_per_page = 25
 
 
@@ -23,12 +31,14 @@ class FloodDetectionRecordAdmin(admin.ModelAdmin):
         "id",
         "camera_description",
         "is_flooded",
+        "medium",
         "confidence",
         "prob_normal",
         "prob_flooded",
+        "prob_medium",
         "created_at",
     )
-    list_filter = ("is_flooded",)
+    list_filter = ("is_flooded", "medium")
     search_fields = ("camera__id", "camera__description")
     list_select_related = ("camera",)
     list_per_page = 25

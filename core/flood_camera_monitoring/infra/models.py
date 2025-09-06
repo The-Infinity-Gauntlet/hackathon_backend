@@ -14,9 +14,8 @@ class Camera(models.Model):
     )
     video_url = models.CharField(max_length=512, unique=True)
     description = models.CharField(max_length=255, blank=True)
-    address_id = models.CharField(max_length=255, blank=True)
-    neighborhood = models.ForeignKey(
-        "addressing.Neighborhood",
+    address = models.ForeignKey(
+        "addressing.Address",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -38,6 +37,9 @@ class FloodDetectionRecord(models.Model):
     confidence = models.FloatField()
     prob_normal = models.FloatField()
     prob_flooded = models.FloatField()
+    prob_medium = models.FloatField(default=0.0)
+    # Indica predição em zona intermediária/ambígua (ex.: perto de 50% ou fora do padrão)
+    medium = models.BooleanField(default=False, db_index=True)
     image = models.ImageField(
         upload_to="flood_detections/%Y/%m/%d/", null=True, blank=True
     )
