@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class Donation(ABC):
+class DonationRepository(ABC):
     @abstractmethod
     def paymentPix(self):
         pass
