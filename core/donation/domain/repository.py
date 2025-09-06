@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
+from core.donation.domain.entities import Payment
 
 class DonationRepository(ABC):
     @abstractmethod
-    def paymentPix(self):
+    def payment_with_pix(self, donation: Payment):
         pass
 
     @abstractmethod
-    def paymentCard(self):
+    def payment_with_card(self, donation: Payment):
         pass
 
     @abstractmethod
-    def paymentTicket(self):
+    def payment_with_ticket(self, donation: Payment):
         pass
