@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     "core",
     "core.weather",
     "core.occurrences",
-    "core.forecast" "core.flood_camera_monitoring",
+    "core.forecast",
+    "core.flood_camera_monitoring",
     "core.uploader",
     "core.addressing",
 ]
