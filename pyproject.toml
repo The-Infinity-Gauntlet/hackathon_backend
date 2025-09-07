@@ -10,6 +10,7 @@ dependencies = [
     "djangorestframework>=3.16.0",
     "redis>=6.4.0",
     "celery>=5.5.3",
+    "django-celery-beat>=2.7.0",
     "dotenv>=0.9.9",
     "torch>=2.8.0",
     "torchvision>=0.23.0",
