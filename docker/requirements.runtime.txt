@@ -7,6 +7,11 @@ python-dotenv>=1.0.0
 requests>=2.31.0
 opencv-python-headless>=4.8.0.76
 pillow>=10.0.0
+geopandas>=0.14.0
+shapely>=2.0.0
+fiona>=1.9.0
+pyproj>=3.6.0
+rtree>=1.2.0
 
 # Force CPU-only PyTorch wheels
 torch==2.8.0
@@ -14,3 +19,10 @@ torchvision==0.23.0
 
 # PostgreSQL driver
 psycopg[binary]>=3.2.1
+
+# Geo stack
+geopandas>=0.14.0
+shapely>=2.0.0
+fiona>=1.9.0
+pyproj>=3.6.0
+rtree>=1.2.0
