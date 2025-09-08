@@ -1,5 +1,5 @@
 class Payment:
-    def __init__(self, amount: float, token: str, first_name: str, last_name: str, description: str, installments: str, payment_method_id: str, issuer_id: str, email: str, identification_type: str, identification_number: str, address_id: int):
+    def __init__(self, amount: float, description: str, payment_method_id: str, email: str,identification_type: str, identification_number: str, token: str=None, first_name: str=None, last_name: str=None, installments: str=None, issuer_id: str=None, address_id: int=None):
         self.amount = amount
         self.token = token
         self.first_name = first_name

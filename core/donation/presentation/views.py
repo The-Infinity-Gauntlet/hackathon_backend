@@ -11,23 +11,23 @@ service = DonationService(repository=repo)
 @csrf_exempt
 def paymentPix(request):
     if request.method == "POST":
-        data = json.loads()
+        data = json.loads(request.body)
         payment = Payment(
             amount=float(data.get("transaction_amount")),
             description=data.get("description"),
             payment_method_id=data.get("payment_method_id"),
             email=data["payer"]["email"],
-            identification_number=data["payer"]["identification"]["type"],
+            identification_type=data["payer"]["identification"]["type"],
             identification_number=data["payer"]["identification"]["number"]
         )
         result = service.pay_with_pix(payment)
-        return JsonResponse(result, safe=False)
+        return result
     return JsonResponse({"error": "Method not allowed"})
 
 @csrf_exempt
 def paymentCard(request):
     if request.method == "POST":
-        data = json.loads()
+        data = json.loads(request.body)
         payment = Payment(
             amount=float(data.get("transaction_amount")),
             token=data.get("token"),
@@ -36,26 +36,26 @@ def paymentCard(request):
             payment_method_id=data.get("payment_method_id"),
             issuer_id=data.get("issuer_id"),
             email=data["payer"]["email"],
-            identification_number=data["payer"]["identification"]["type"],
+            identification_type=data["payer"]["identification"]["type"],
             identification_number=data["payer"]["identification"]["number"]
         )
         result = service.pay_with_card(payment)
-        return JsonResponse(result, safe=False)
+        return result
     return JsonResponse({"error": "Method not allowed"})
 
 @csrf_exempt
 def paymentTicket(request):
     if request.method == "POST":
-        data = json.loads()
+        data = json.loads(request.body)
         payment = Payment(
             amount=float(data.get("transaction_amount")),
             description=data.get("description"),
             payment_method_id=data.get("payment_method_id"),
             email=data["payer"]["email"],
-            identification_number=data["payer"]["identification"]["type"],
+            identification_type=data["payer"]["identification"]["type"],
             identification_number=data["payer"]["identification"]["number"],
             address_id=["address_id"]
         )
         result = service.pay_with_pix(payment)
-        return JsonResponse(result, safe=False)
+        return result
     return JsonResponse({"error": "Method not allowed"})

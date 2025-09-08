@@ -36,7 +36,7 @@ urlpatterns = [
     ),
     path("api/upload/", include("core.uploader.presentation.urls")),
     path("api/addressing/", include("core.addressing.presentation.urls")),
-    path("api/payment/", include("core.donation.presentation.urls"))
+    path("api/donate/", include("core.donation.presentation.urls"))
 ]
 
 if settings.DEBUG:

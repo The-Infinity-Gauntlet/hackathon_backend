@@ -3,8 +3,7 @@ from django.http import JsonResponse
 from core.donation.domain.entities import Payment
 
 class MercadoPagoRepository:
-    def __init__(self):
-        sdk = mercadopago.SDK(os.getenv("ACCESS_TOKEN"))
+    sdk = mercadopago.SDK(os.getenv("ACCESS_TOKEN"))
 
     def paymentPix(self, payment: Payment):
         request_options = mercadopago.config.RequestOptions()
