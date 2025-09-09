@@ -52,10 +52,17 @@ def paymentTicket(request):
             description=data.get("description"),
             payment_method_id=data.get("payment_method_id"),
             email=data["payer"]["email"],
+            first_name=data["payer"]["first_name"],
+            last_name=data["payer"]["last_name"],
             identification_type=data["payer"]["identification"]["type"],
             identification_number=data["payer"]["identification"]["number"],
-            address_id=["address_id"]
+            zip_code=data["payer"]["address"]["zip_code"],
+            street_name=data["payer"]["address"]["street_name"],
+            street_number=data["payer"]["address"]["street_number"],
+            neighborhood=data["payer"]["address"]["neighborhood"],
+            city=data["payer"]["address"]["city"],
+            federal_unit=data["payer"]["address"]["federal_unit"]
         )
-        result = service.pay_with_pix(payment)
+        result = service.pay_with_ticket(payment)
         return result
     return JsonResponse({"error": "Method not allowed"})

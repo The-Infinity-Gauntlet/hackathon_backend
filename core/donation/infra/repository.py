@@ -77,12 +77,12 @@ class MercadoPagoRepository:
                     "number": payment.identification_number
                 },
                 "address": {
-                    "zip_code": payment,
-                    "street_name": payment("street_name"),
-                    "street_number": payment("street_number"),
-                    "neighborhood": payment("neighborhood"),
-                    "city": payment("city"),
-                    "federal_unit": payment("federal_unit")
+                    "zip_code": payment.zip_code,
+                    "street_name": payment.street_name,
+                    "street_number": payment.street_number,
+                    "neighborhood": payment.neighborhood,
+                    "city": payment.city,
+                    "federal_unit": payment.federal_unit
                 }
             }
         }
