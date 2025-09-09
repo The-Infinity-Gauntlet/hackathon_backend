@@ -1,6 +1,6 @@
 class Payment:
     def __init__(self, amount: float, description: str, payment_method_id: str, email: str,identification_type: str, identification_number: str, token: str=None, first_name: str=None, last_name: str=None, installments: str=None, 
-    issuer_id: str=None, zip_code: str=None, street_name: str=None, street_number: str=None, neighborhood: str=None, city: str=None, federal_unit: str=None):
+    issuer_id: str=None, zip_code: str=None, street_name: str=None, street_number: str=None, neighborhood: str=None, city: str=None, federal_unit: str=None) -> None:
         self.amount = amount
         self.token = token
         self.first_name = first_name
@@ -18,3 +18,9 @@ class Payment:
         self.neighborhood = neighborhood
         self.city = city
         self.federal_unit = federal_unit
+
+class Card:
+    def __init__(self, email: str, token: str, payment_method_id: str) -> None:
+        self.email = email
+        self.token = token
+        self.payment_method_id = payment_method_id

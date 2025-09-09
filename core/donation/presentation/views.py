@@ -1,6 +1,6 @@
 from core.donation.infra.repository import MercadoPagoRepository
 from core.donation.app.services import DonationService
-from core.donation.domain.entities import Payment
+from core.donation.domain.entities import Payment, Card
 from django.views.decorators.csrf import csrf_exempt
 from django.http.response import JsonResponse
 import json
@@ -64,5 +64,18 @@ def paymentTicket(request):
             federal_unit=data["payer"]["address"]["federal_unit"]
         )
         result = service.pay_with_ticket(payment)
+        return result
+    return JsonResponse({"error": "Method not allowed"})
+
+@csrf_exempt
+def savedCard(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        card = Card(
+            email=data["email"],
+            token=data["token"],
+            payment_method_id=data["payment_method_id"]
+        )
+        result = service.save_card(card)
         return result
     return JsonResponse({"error": "Method not allowed"})

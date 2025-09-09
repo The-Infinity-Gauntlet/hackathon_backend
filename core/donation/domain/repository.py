@@ -13,3 +13,7 @@ class DonationRepository(ABC):
     @abstractmethod
     def payment_with_ticket(self, donation: Payment):
         pass
+
+    @abstractmethod
+    def saved_card(self, donation: Payment):
+        pass

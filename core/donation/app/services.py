@@ -13,3 +13,6 @@ class DonationService:
     
     def pay_with_ticket(self, payment: Payment):
         return self.repository.paymentTicket(payment)
+    
+    def save_card(self, payment: Payment):
+        return self.repository.saved_card(payment)

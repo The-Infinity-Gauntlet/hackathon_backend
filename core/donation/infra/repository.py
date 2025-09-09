@@ -91,3 +91,20 @@ class MercadoPagoRepository:
         payment = response["response"]
 
         return JsonResponse(payment, safe=False)
+    
+    def saved_card(self, payment: Payment):
+        # Cria um cliente para ser associado ao cartão
+        customer_data = {
+            "email": payment.email,
+        }
+        client_response = self.sdk.customer().create(customer_data)
+        customer = client_response["response"]
+
+        # Cria o cartão associado ao cliente
+        card_data = {
+            "token": payment.token,
+            "payment_method_id": payment.payment_method_id
+        }
+        card_response = self.sdk.card().create(customer["id"], card_data)
+        card = card_response["response"]
+        return JsonResponse(card, safe=False)
