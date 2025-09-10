@@ -90,10 +90,16 @@ class AnalyzeAllCamerasService:
                     best_idx = idx
                 flooded_series.append(flooded)
 
-            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(assessments)
-            mean_flooded = sum(float(a.probabilities.flooded) for a in assessments) / len(assessments)
+            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
+                assessments
+            )
+            mean_flooded = sum(
+                float(a.probabilities.flooded) for a in assessments
+            ) / len(assessments)
             try:
-                mean_medium = sum(float(a.probabilities.medium) for a in assessments) / len(assessments)
+                mean_medium = sum(
+                    float(a.probabilities.medium) for a in assessments
+                ) / len(assessments)
             except Exception:
                 mean_medium = 0.0
             # Normaliza para somar 100 (2 ou 3 classes)
@@ -227,8 +233,8 @@ class AnalyzeAllCamerasService:
                     best_flooded,
                     mean_flooded,
                     mean_normal,
+                    mean_medium,
                     len(assessments),
-                    
                     str(medium_band),
                     medium_frames,
                     str(rising_trend),
@@ -267,7 +273,15 @@ class AnalyzeAllCamerasService:
         # Imprime uma tabela de resumo ao final
         try:
             table = self._format_table(
-                ["Câmera", "Endereço", "Status", "Conf(%)", "Normal(%)", "Alagado(%)", "Médio(%)"],
+                [
+                    "Câmera",
+                    "Endereço",
+                    "Status",
+                    "Conf(%)",
+                    "Normal(%)",
+                    "Alagado(%)",
+                    "Médio(%)",
+                ],
                 rows,
                 max_widths={"Endereço": 70},
             )
