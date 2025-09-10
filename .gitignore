@@ -271,6 +271,6 @@ pyrightconfig.json
 
 # ML models and checkpoints (do not commit large binaries)
 /core/flood_camera_monitoring/infra/machine_model
-/core/flood_camera_monitoring/infra/machine_model/best_real_model.pth
+core/flood_camera_monitoring/infra/machine_model/best_real_model.pth
 
-# End of https://www.toptal.com/developers/gitignore/api/python,django
+# End of https://www.toptal.com/developers/gitignore/api/python,djang
