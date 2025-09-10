@@ -29,13 +29,14 @@ urlpatterns = [
     path("api/users/", include("core.users.presentation.urls")),
     path("api/weather/", include("core.weather.presentation.urls")),
     path("api/forecast/", include("core.forecast.presentation.urls")),
-    path("api/occurrences/", include("core.occurrences.presentation.urls"))
+    path("api/occurrences/", include("core.occurrences.presentation.urls")),
     path(
         "api/flood_monitoring/",
         include("core.flood_camera_monitoring.presentation.urls"),
     ),
     path("api/upload/", include("core.uploader.presentation.urls")),
     path("api/addressing/", include("core.addressing.presentation.urls")),
+    path("api/donate/", include("core.donation.presentation.urls"))
 ]
 
 if settings.DEBUG:
