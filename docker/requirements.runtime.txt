@@ -1,0 +1,15 @@
+django>=5.2.3
+djangorestframework>=3.16.0
+redis>=6.4.0
+celery>=5.5.3
+python-dotenv>=1.0.0
+requests>=2.31.0
+opencv-python-headless>=4.8.0.76
+pillow>=10.0.0
+
+# Force CPU-only PyTorch wheels
+torch==2.8.0
+torchvision==0.23.0
+
+# PostgreSQL driver
+psycopg[binary]>=3.2.1
