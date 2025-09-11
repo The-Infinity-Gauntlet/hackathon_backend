@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from core.flood_point_registering.domain.entities import Flood_Point_Register
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 class RegisterRepository:
     @abstractmethod
@@ -12,7 +12,7 @@ class RegisterRepository:
         pass
 
     @abstractmethod
-    def listRegisters(self, register: Flood_Point_Register) -> List[Flood_Point_Register]:
+    def listRegisters(self, filters: Dict = None) -> List[Flood_Point_Register]:
         pass
 
     @abstractmethod
