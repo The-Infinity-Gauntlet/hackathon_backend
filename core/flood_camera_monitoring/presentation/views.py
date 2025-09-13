@@ -67,8 +67,7 @@ class StreamSnapshotDetectView(APIView):
                 # medium flag agora deriva da maior probabilidade entre medium e flooded abaixo de strong threshold
                 "medium": bool(
                     getattr(res.probabilities, "medium", 0.0) >= 25.0
-                    and getattr(res.probabilities, "medium", 0.0)
-                    < 60.0
+                    and getattr(res.probabilities, "medium", 0.0) < 60.0
                     and res.probabilities.flooded < 60.0
                 ),
                 "probabilities": {
@@ -163,47 +162,24 @@ class CamerasListView(APIView):
     """
 
     def get(self, request, *args, **kwargs):
-        qs = Camera.objects.select_related("address", "address__neighborhood", "address__neighborhood__region")
-        neighborhood_id = request.query_params.get("neighborhood_id")
-        region_id = request.query_params.get("region_id")
-
-        if neighborhood_id:
-            qs = qs.filter(address__neighborhood_id=neighborhood_id)
-        if region_id:
-            qs = qs.filter(address__neighborhood__region_id=region_id)
+        # Address FK removed; filtering now by simple text neighborhood if provided
+        neighborhood_name = request.query_params.get("neighborhood")
+        qs = Camera.objects.all()
+        if neighborhood_name:
+            qs = qs.filter(neighborhood__icontains=neighborhood_name)
 
         data = []
         for cam in qs.iterator():
-            addr = cam.address
-            neigh = addr.neighborhood if addr else None
-            reg = neigh.region if neigh else None
             data.append(
                 {
                     "id": str(cam.id),
                     "description": cam.description,
                     "status": cam.get_status_display(),
-                    "video_url": cam.video_url,
-                    "address": {
-                        "id": str(addr.id) if addr else None,
-                        "street": addr.street if addr else None,
-                        "number": addr.number if addr else None,
-                        "city": addr.city if addr else None,
-                        "state": addr.state if addr else None,
-                        "country": addr.country if addr else None,
-                        "zipcode": addr.zipcode if addr else None,
-                        "latitude": addr.latitude if addr else None,
-                        "longitude": addr.longitude if addr else None,
-                    } if addr else None,
-                    "neighborhood": {
-                        "id": str(neigh.id),
-                        "name": neigh.name,
-                        "city": neigh.city,
-                    } if neigh else None,
-                    "region": {
-                        "id": str(reg.id),
-                        "name": reg.name,
-                        "city": reg.city,
-                    } if reg else None,
+                    "video_hls": cam.video_hls,
+                    "video_embed": cam.video_embed,
+                    "neighborhood": cam.neighborhood,
+                    "latitude": cam.latitude,
+                    "longitude": cam.longitude,
                 }
             )
         return Response({"results": data, "count": len(data)})

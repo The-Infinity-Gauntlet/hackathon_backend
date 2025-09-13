@@ -39,7 +39,7 @@ class PredictAllCamerasService:
         results: List[Dict[str, Any]] = []
 
         for cam in Camera.objects.filter(status=Camera.CameraStatus.ACTIVE).iterator():
-            stream = OpenCVVideoStream(cam.video_url)
+            stream = OpenCVVideoStream(cam.video_hls)
             frames: list[bytes] = []
             try:
                 # Drop initial frames
@@ -85,11 +85,17 @@ class PredictAllCamerasService:
                     best_idx = idx
                 flooded_series.append(flooded)
 
-            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(assessments)
-            mean_flooded = sum(float(a.probabilities.flooded) for a in assessments) / len(assessments)
+            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
+                assessments
+            )
+            mean_flooded = sum(
+                float(a.probabilities.flooded) for a in assessments
+            ) / len(assessments)
             # medium pode não existir em modelos 2-classes; trata como 0.0
             try:
-                mean_medium = sum(float(a.probabilities.medium) for a in assessments) / len(assessments)
+                mean_medium = sum(
+                    float(a.probabilities.medium) for a in assessments
+                ) / len(assessments)
             except Exception:
                 mean_medium = 0.0
             # Garantir soma 100 entre 2 ou 3 classes
@@ -112,10 +118,22 @@ class PredictAllCamerasService:
             strong = decision_flooded >= float(self.strong_min)
             rising_trend = False
             if len(flooded_series) >= 2:
-                rising_trend = (flooded_series[-1] - flooded_series[0]) >= float(self.trend_min_delta)
-            medium_band = float(self.medium_min) <= mean_flooded < float(self.medium_max)
-            medium_frames = sum(1 for v in flooded_series if float(self.medium_min) <= v < float(self.strong_min))
-            medium_flag = (not strong) and (medium_band or medium_frames >= int(self.min_medium_frames) or (rising_trend and flooded_series[-1] >= float(self.medium_min)))
+                rising_trend = (flooded_series[-1] - flooded_series[0]) >= float(
+                    self.trend_min_delta
+                )
+            medium_band = (
+                float(self.medium_min) <= mean_flooded < float(self.medium_max)
+            )
+            medium_frames = sum(
+                1
+                for v in flooded_series
+                if float(self.medium_min) <= v < float(self.strong_min)
+            )
+            medium_flag = (not strong) and (
+                medium_band
+                or medium_frames >= int(self.min_medium_frames)
+                or (rising_trend and flooded_series[-1] >= float(self.medium_min))
+            )
 
             results.append(
                 {
@@ -136,7 +154,10 @@ class PredictAllCamerasService:
                         "frames": len(assessments),
                         "best_flooded": float(best_flooded),
                         "decision_flooded": float(decision_flooded),
-                        "trend": {"series": flooded_series, "rising": bool(rising_trend)},
+                        "trend": {
+                            "series": flooded_series,
+                            "rising": bool(rising_trend),
+                        },
                     },
                 }
             )
