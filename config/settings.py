@@ -202,3 +202,7 @@ LOGGING = {
         },
     },
 }
+
+# Custom: Public link to camera installation instructions/UI
+# Read from environment variable CAMERA_INSTALL_URL; defaults to empty string if not set
+CAMERA_INSTALL_URL = os.getenv("CAMERA_INSTALL_URL", "")

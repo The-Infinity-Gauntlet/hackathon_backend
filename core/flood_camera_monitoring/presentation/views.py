@@ -12,6 +12,7 @@ from core.flood_camera_monitoring.presentation.serializers import (
     StreamSnapshotSerializer,
     StreamBatchSerializer,
 )
+from django.conf import settings
 from core.flood_camera_monitoring.adapters.gateways.opencv_stream_adapter import (
     OpenCVVideoStream,
 )
@@ -75,6 +76,7 @@ class StreamSnapshotDetectView(APIView):
                     "flooded": res.probabilities.flooded,
                     "medium": getattr(res.probabilities, "medium", 0.0),
                 },
+                "camera_install_url": getattr(settings, "CAMERA_INSTALL_URL", ""),
             }
         )
 
@@ -119,7 +121,12 @@ class StreamBatchDetectView(APIView):
                 }
             )
 
-        return Response({"results": results})
+        return Response(
+            {
+                "results": results,
+                "camera_install_url": getattr(settings, "CAMERA_INSTALL_URL", ""),
+            }
+        )
 
 
 class AnalyzeAllCamerasView(APIView):
@@ -131,7 +138,12 @@ class AnalyzeAllCamerasView(APIView):
     def post(self, request, *args, **kwargs):
         service = AnalyzeAllCamerasService()
         saved = service.run()
-        return Response({"saved": saved})
+        return Response(
+            {
+                "saved": saved,
+                "camera_install_url": getattr(settings, "CAMERA_INSTALL_URL", ""),
+            }
+        )
 
 
 class PredictAllCamerasView(APIView):
@@ -150,7 +162,12 @@ class PredictAllCamerasView(APIView):
             item["prob_medium"] = float(
                 item.get("probabilities", {}).get("medium", 0.0)
             )
-        return Response({"results": data})
+        return Response(
+            {
+                "results": data,
+                "camera_install_url": getattr(settings, "CAMERA_INSTALL_URL", ""),
+            }
+        )
 
 
 class CamerasListView(APIView):
@@ -182,4 +199,10 @@ class CamerasListView(APIView):
                     "longitude": cam.longitude,
                 }
             )
-        return Response({"results": data, "count": len(data)})
+        return Response(
+            {
+                "results": data,
+                "count": len(data),
+                "camera_install_url": getattr(settings, "CAMERA_INSTALL_URL", ""),
+            }
+        )
