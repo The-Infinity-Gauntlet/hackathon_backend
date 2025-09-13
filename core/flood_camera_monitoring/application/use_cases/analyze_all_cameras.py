@@ -47,7 +47,15 @@ class AnalyzeAllCamerasService:
         clf = build_default_classifier()
 
         for cam in Camera.objects.filter(status=Camera.CameraStatus.ACTIVE).iterator():
-            stream = OpenCVVideoStream(cam.video_url)
+            # Escolhe a URL correta do stream; o campo antigo 'video_url' foi removido.
+            stream_url = getattr(cam, "video_hls", None)
+            if not stream_url:
+                logger.warning(
+                    "Camera id=%s não possui 'video_hls' configurado. Pulando.",
+                    getattr(cam, "id", None),
+                )
+                continue
+            stream = OpenCVVideoStream(stream_url)
             frames: list[bytes] = []
             try:
                 # Drop a few initial frames to reduce buffering artifacts
@@ -102,7 +110,6 @@ class AnalyzeAllCamerasService:
                 ) / len(assessments)
             except Exception:
                 mean_medium = 0.0
-            # Normaliza para somar 100 (2 ou 3 classes)
             total = mean_normal + mean_flooded + mean_medium
             if total > 0:
                 mean_normal = (mean_normal / total) * 100.0
@@ -256,12 +263,11 @@ class AnalyzeAllCamerasService:
                     float(self.strong_min),
                 )
 
-            # Adiciona linha da tabela
             camera_label = f"({getattr(cam, 'description', '')})".strip()
             rows.append(
                 (
                     camera_label,
-                    getattr(cam, "video_url", ""),
+                    getattr(cam, "video_hls", ""),
                     status,
                     f"{float(decision_flooded):.2f}",
                     f"{mean_normal:.2f}",

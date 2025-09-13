@@ -7,21 +7,24 @@ class CameraAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "status",
-        "video_url",
         "description",
-        "address",
+        "video_hls",
+        "video_embed",
+        "neighborhood",
+        "latitude",
+        "longitude",
         "updated_at",
     )
     list_filter = ("status",)
     search_fields = (
         "id",
-        "video_url",
+        "video_hls",
+        "video_embed",
         "description",
-        "address__id",
-        "address__street",
-        "address__city",
+        "neighborhood__name",
     )
-    autocomplete_fields = ("address",)
+    autocomplete_fields = ("neighborhood",)
+    list_select_related = ("neighborhood",)
     list_per_page = 25
 
 
