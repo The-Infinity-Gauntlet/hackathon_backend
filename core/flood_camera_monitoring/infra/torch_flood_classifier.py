@@ -65,7 +65,17 @@ def build_default_classifier(
             needs_download = True
 
     if needs_download:
-        url = "https://drive.google.com/uc?export=download&id=1S7sy4Ug6ypF2yG03ZODsAcTTsgKQMt18"
+        # Prefer full URL from env; otherwise, build from Google Drive ID
+        url = os.getenv(
+            "FLOOD_MODEL_URL",
+            None,
+        )
+        if not url:
+            drive_id = os.getenv(
+                "FLOOD_MODEL_DRIVE_ID",
+                "1S7sy4Ug6ypF2yG03ZODsAcTTsgKQMt18",
+            )
+            url = f"https://drive.google.com/uc?export=download&id={drive_id}"
         try:
             if checkpoint_path.exists() and checkpoint_path.is_file():
                 checkpoint_path.unlink()
