@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "core.flood_camera_monitoring",
     "core.uploader",
     "core.addressing",
+    "core.flood_point_registering"
 ]
 
 
