@@ -170,8 +170,9 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1
 from celery.schedules import crontab  # type: ignore
 
 CELERY_BEAT_SCHEDULE = {
-    "flood-analyze-all-cameras": {
-        "task": "core.flood_camera_monitoring.infra.tasks.analyze_all_cameras_task",
+    # Unified periodic job: compute predictions, cache them, and persist alerts quickly
+    "flood-refresh-all-and-cache": {
+        "task": "core.flood_camera_monitoring.tasks.refresh_all_and_cache_task",
         "schedule": 300.00,
     },
 }
@@ -206,3 +207,17 @@ LOGGING = {
 # Custom: Public link to camera installation instructions/UI
 # Read from environment variable CAMERA_INSTALL_URL; defaults to empty string if not set
 CAMERA_INSTALL_URL = os.getenv("CAMERA_INSTALL_URL", "")
+
+# Redis URL dedicated for application cache (separate DB from Celery broker/results).
+# Defaults to DB 2 on the same Redis host.
+REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2")
+# TTL (seconds) for the aggregated predict-all cache
+PREDICT_CACHE_TTL_SECONDS = int(os.getenv("FLOOD_PREDICT_CACHE_TTL", "300"))
+
+# Django REST Framework
+# Native pagination defaults (page & page_size query params supported)
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPageNumberPagination",
+    # Default page size, can be overridden via ?page_size= and capped by paginator
+    "PAGE_SIZE": int(os.getenv("API_PAGE_SIZE", "20")),
+}
