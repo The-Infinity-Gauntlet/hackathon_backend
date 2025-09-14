@@ -9,11 +9,13 @@ from core.flood_camera_monitoring.application.dto.predict_response import (
     PredictResponse,
 )
 from core.flood_camera_monitoring.infra.models import Camera, FloodDetectionRecord
-from core.flood_camera_monitoring.adapters.gateways.opencv_stream_adapter import (
-    OpenCVVideoStream,
-)
 from core.flood_camera_monitoring.infra.torch_flood_classifier import (
     build_default_classifier,
+)
+from core.flood_camera_monitoring.application.utils.evaluation import (
+    EvalConfig,
+    capture_frames,
+    aggregate_predictions,
 )
 
 
@@ -35,16 +37,28 @@ class AnalyzeAllCamerasService:
     trend_min_delta: float = float(os.getenv("FLOOD_TREND_MIN_DELTA", "10.0"))
     min_medium_frames: int = int(os.getenv("FLOOD_MIN_MEDIUM_FRAMES", "2"))
 
-    def run(self) -> int:
+    def run_and_collect(self):
         """
-        Analyze all ACTIVE cameras and persist a record with the captured image
-        only when flood is predicted with confidence >= min_confidence.
-        Returns the number of records saved.
+        Analyze all ACTIVE cameras, persist flood/medium events when applicable,
+        and also collect a presentable summary list for caching and APIs.
+
+        Returns: (results: list[dict], saved: int)
         """
         logger = logging.getLogger(__name__)
         saved = 0
         rows = []  # collect per-câmera resultados para imprimir tabela ao final
+        results: list[dict] = []
         clf = build_default_classifier()
+        cfg = EvalConfig(
+            sample_frames=self.sample_frames,
+            sample_interval_ms=self.sample_interval_ms,
+            warmup_drops=self.warmup_drops,
+            strong_min=self.strong_min,
+            medium_min=self.medium_min,
+            medium_max=self.medium_max,
+            trend_min_delta=self.trend_min_delta,
+            min_medium_frames=self.min_medium_frames,
+        )
 
         for cam in Camera.objects.filter(status=Camera.CameraStatus.ACTIVE).iterator():
             # Escolhe a URL correta do stream; o campo antigo 'video_url' foi removido.
@@ -55,93 +69,47 @@ class AnalyzeAllCamerasService:
                     getattr(cam, "id", None),
                 )
                 continue
-            stream = OpenCVVideoStream(stream_url)
-            frames: list[bytes] = []
             try:
-                # Drop a few initial frames to reduce buffering artifacts
-                for _ in range(max(0, int(self.warmup_drops))):
-                    _ = stream.grab()
-                attempts = max(1, int(self.sample_frames))
-                for i in range(attempts):
-                    img_bytes = stream.grab()
-                    if img_bytes:
-                        frames.append(img_bytes)
-                    if i < attempts - 1 and self.sample_interval_ms > 0:
-                        time.sleep(self.sample_interval_ms / 1000.0)
+                frames = capture_frames(stream_url, cfg)
             except Exception as e:
                 logger.exception(
                     "Failed to grab frames from camera id=%s: %s",
                     getattr(cam, "id", None),
                     e,
                 )
-            finally:
-                stream.close()
+                frames = []
 
             if not frames:
                 logger.warning(
                     "No frame captured for camera id=%s. Skipping.",
                     getattr(cam, "id", None),
                 )
+                # Add N/A style result for UI consistency
+                results.append(
+                    {
+                        "camera": {
+                            "id": getattr(cam, "id", None),
+                            "description": getattr(cam, "description", None),
+                        },
+                        "is_flooded": False,
+                        "confidence": 0.0,
+                        "medium": False,
+                        "probabilities": {"normal": 0.0, "flooded": 0.0, "medium": 0.0},
+                        "meta": {"frames": 0, "note": "no-frame"},
+                    }
+                )
                 continue
 
             # Predict for all captured frames and aggregate
-            assessments: list[PredictResponse] = []
-            best_idx = 0
-            best_flooded = -1.0
-            flooded_series: list[float] = []
-            for idx, fb in enumerate(frames):
-                a = clf.predict(fb)
-                assessments.append(a)
-                flooded = float(a.probabilities.flooded)
-                if flooded > best_flooded:
-                    best_flooded = flooded
-                    best_idx = idx
-                flooded_series.append(flooded)
-
-            mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
-                assessments
-            )
-            mean_flooded = sum(
-                float(a.probabilities.flooded) for a in assessments
-            ) / len(assessments)
-            try:
-                mean_medium = sum(
-                    float(a.probabilities.medium) for a in assessments
-                ) / len(assessments)
-            except Exception:
-                mean_medium = 0.0
-            total = mean_normal + mean_flooded + mean_medium
-            if total > 0:
-                mean_normal = (mean_normal / total) * 100.0
-                mean_flooded = (mean_flooded / total) * 100.0
-                mean_medium = 100.0 - (mean_normal + mean_flooded)
-
-            # Decide using best or mean flooded probability
-            decision_flooded = max(best_flooded, mean_flooded)
-            chosen = assessments[best_idx]
-            chosen_bytes = frames[best_idx]
-
-            # Compute early-warning (medium) indicators
-            strong = decision_flooded >= float(self.strong_min)
-            # rising trend if last increases sufficiently from first
-            rising_trend = False
-            if len(flooded_series) >= 2:
-                rising_trend = (flooded_series[-1] - flooded_series[0]) >= float(
-                    self.trend_min_delta
-                )
-            medium_band = (
-                float(self.medium_min) <= mean_flooded < float(self.medium_max)
-            )
-            medium_frames = sum(
-                1
-                for v in flooded_series
-                if float(self.medium_min) <= v < float(self.strong_min)
-            )
-            medium_condition = (not strong) and (
-                medium_band
-                or medium_frames >= int(self.min_medium_frames)
-                or (rising_trend and flooded_series[-1] >= float(self.medium_min))
-            )
+            summary, assessments = aggregate_predictions(frames, clf, cfg)
+            decision_flooded = float(summary["decision_flooded"])  # for logs
+            best_flooded = float(summary["best_flooded"])  # for logs
+            mean_normal = float(summary["mean_normal"])  # for logs
+            mean_flooded = float(summary["mean_flooded"])  # for logs
+            mean_medium = float(summary["mean_medium"])  # for logs
+            chosen_bytes = summary["chosen_bytes"]
+            strong = bool(summary["strong"])  # persist flooded when strong
+            medium_condition = bool(summary["medium_flag"]) and not strong
 
             if strong:
                 # Try creating with image; if fails (e.g., permission), save without image
@@ -191,8 +159,9 @@ class AnalyzeAllCamerasService:
                     best_flooded,
                     mean_flooded,
                     mean_normal,
-                    float(chosen.confidence),
-                    len(assessments),
+                    mean_medium,
+                    decision_flooded,
+                    int(summary["frames_count"]),
                     float(self.strong_min),
                 )
             elif medium_condition:
@@ -241,10 +210,10 @@ class AnalyzeAllCamerasService:
                     mean_flooded,
                     mean_normal,
                     mean_medium,
-                    len(assessments),
-                    str(medium_band),
-                    medium_frames,
-                    str(rising_trend),
+                    int(summary["frames_count"]),
+                    str(bool(summary.get("medium_band", False))),
+                    int(summary.get("medium_frames", 0)),
+                    str(bool(summary["trend"]["rising"])),
                 )
             else:
                 status = "NO_FLOOD"
@@ -258,8 +227,9 @@ class AnalyzeAllCamerasService:
                     best_flooded,
                     mean_flooded,
                     mean_normal,
+                    mean_medium,
                     float(decision_flooded),
-                    len(assessments),
+                    int(summary["frames_count"]),
                     float(self.strong_min),
                 )
 
@@ -274,6 +244,30 @@ class AnalyzeAllCamerasService:
                     f"{mean_flooded:.2f}",
                     f"{mean_medium:.2f}",
                 )
+            )
+
+            # Append API-friendly result entry
+            results.append(
+                {
+                    "camera": {
+                        "id": getattr(cam, "id", None),
+                        "description": getattr(cam, "description", None),
+                    },
+                    "is_flooded": bool(strong),
+                    "confidence": float(summary["chosen_confidence"]),
+                    "medium": bool(medium_condition and not strong),
+                    "probabilities": {
+                        "normal": float(mean_normal),
+                        "flooded": float(mean_flooded),
+                        "medium": float(mean_medium),
+                    },
+                    "meta": {
+                        "frames": int(summary["frames_count"]),
+                        "best_flooded": float(best_flooded),
+                        "decision_flooded": float(decision_flooded),
+                        "trend": summary["trend"],
+                    },
+                }
             )
 
         # Imprime uma tabela de resumo ao final
@@ -295,6 +289,13 @@ class AnalyzeAllCamerasService:
         except Exception:
             logger.exception("Falha ao montar tabela de resumo")
 
+        return results, saved
+
+    def run(self) -> int:
+        """
+        Backward-compatible: execute analysis and return only the number of saved records.
+        """
+        _, saved = self.run_and_collect()
         return saved
 
     @staticmethod

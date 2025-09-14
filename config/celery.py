@@ -43,7 +43,11 @@ except Exception:  # pragma: no cover - best effort
     pass
 
 # Ensure flood monitoring tasks are registered
-try:
-    __import__("core.flood_camera_monitoring.infra.tasks")
-except Exception:  # pragma: no cover - best effort
-    pass
+for mod in (
+    "core.flood_camera_monitoring.tasks",
+    "core.flood_camera_monitoring.infra.tasks",  # compat wrapper
+):
+    try:
+        __import__(mod)
+    except Exception:  # pragma: no cover - best effort
+        pass
