@@ -29,9 +29,8 @@ from core.flood_camera_monitoring.application.use_cases.detect_flood_snapshot_fr
 from core.flood_camera_monitoring.application.dto.stream_request import (
     StreamDetectRequest,
 )
-from core.common.cache import cache_get_json, cache_set_json, now_ts
-from django.conf import settings
-from core.flood_camera_monitoring.tasks import refresh_all_and_cache_task
+from core.common.cache import cache_get_json
+from core.flood_camera_monitoring.infra.tasks import refresh_predict_all_cache_task
 from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
@@ -134,11 +133,7 @@ class HealthcheckView(APIView):
                 model_size = checkpoint_path.stat().st_size
             except Exception:
                 model_size = 0
-        model_ok = bool(
-            model_exists
-            and (model_size >= 1024 * 1024)
-            and not looks_like_lfs_pointer(checkpoint_path)
-        )
+        model_ok = bool(model_exists and (model_size >= 1024 * 1024) and not looks_like_lfs_pointer(checkpoint_path))
 
         # 2) DB
         db_ok = False
@@ -181,12 +176,7 @@ class HealthcheckView(APIView):
                 **({"error": redis_error} if redis_error else {}),
             },
         }
-        return Response(
-            payload,
-            status=(
-                status.HTTP_200_OK if all_ok else status.HTTP_503_SERVICE_UNAVAILABLE
-            ),
-        )
+        return Response(payload, status=status.HTTP_200_OK if all_ok else status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class AnalyzeAllCamerasView(APIView):
@@ -208,57 +198,30 @@ class AnalyzeAllCamerasView(APIView):
 class PredictAllCamerasView(APIView):
     """HTTP endpoint para retornar a predição de todas as câmeras ativas.
 
-    Parâmetros de query:
-      - refresh: quando "1|true|yes|async" dispara atualização em background e retorna cache atual;
-                 quando "sync|now|force" recalcula imediatamente, atualiza o cache e retorna dados frescos.
-    Não persiste nada no caminho rápido; o refresh síncrono usa o caso de uso de análise (persiste) antes de atualizar o cache.
+    Não persiste nada; retorna lista com probabilidades (inclui 'normal').
     """
 
     def get(self, request, *args, **kwargs):
-        # 1) Cache-first with optional refresh modes
-        refresh_raw = str(request.query_params.get("refresh", "")).lower()
-        refresh_async = refresh_raw in ("1", "true", "yes", "async")
-        refresh_sync = refresh_raw in ("sync", "now", "force", "2")
-        cached_payload = cache_get_json("flood:predict_all")
-        has_cache = bool(
-            cached_payload
-            and isinstance(cached_payload, dict)
-            and "data" in cached_payload
+        # Fast path: try cache first
+        force_refresh = str(request.query_params.get("refresh", "false")).lower() in (
+            "1",
+            "true",
+            "yes",
         )
-
-        if refresh_sync:
-            # Recalcula imediatamente utilizando o caso de uso consolidado (persiste) e atualiza o cache.
-            try:
-                service = AnalyzeAllCamerasService()
-                fresh_data, _saved = service.run_and_collect()
-                payload = {"data": fresh_data, "ts": int(now_ts())}
-                ttl = getattr(settings, "PREDICT_CACHE_TTL_SECONDS", 300)
-                cache_set_json("flood:predict_all", payload, ex=int(ttl))
-                data = fresh_data
-            except Exception:
-                # Fallback: usa cache ou uma predição rápida sem persistir
-                if has_cache:
-                    data = (cached_payload or {}).get("data", [])
-                else:
-                    data = PredictAllCamerasService().run()
+        cached = None if force_refresh else cache_get_json("flood:predict_all")
+        if cached and isinstance(cached, dict) and "data" in cached:
+            data = cached["data"]
         else:
-            if not has_cache:
-                # Cold start: compute synchronously (rápido) para não retornar vazio e agenda refresh
-                data = PredictAllCamerasService().run()
-                try:
-                    refresh_all_and_cache_task.delay()
-                except Exception:
-                    pass
-            else:
-                # Serve cached data e, se solicitado, agenda atualização em background
-                data = (cached_payload or {}).get("data", [])
-                if refresh_async:
-                    try:
-                        refresh_all_and_cache_task.delay()
-                    except Exception:
-                        pass
+            # Compute synchronously if no cache (first call) to ensure data is available
+            service = PredictAllCamerasService()
+            data = service.run()
+            # trigger async refresh to keep cache warm next time
+            try:
+                refresh_predict_all_cache_task.delay()
+            except Exception:
+                pass
 
-        # 2) Safe in-memory ordering (works on plain lists)
+        # Safe ordering for in-memory list
         ordering_param = request.query_params.get("ordering", "description")
         order_map = {
             "description": lambda it: (it.get("camera") or {}).get("description") or "",
@@ -274,24 +237,28 @@ class PredictAllCamerasView(APIView):
                 (it.get("probabilities") or {}).get("medium", 0.0)
             ),
         }
-        parts = [p.strip() for p in str(ordering_param).split(",") if p.strip()]
-        keys = []
-        for p in parts:
-            desc = p.startswith("-")
-            key = p[1:] if desc else p
-            fn = order_map.get(key)
-            if fn:
-                keys.append((fn, desc))
-        for fn, desc in reversed(keys):
-            try:
-                data.sort(key=fn, reverse=desc)
-            except Exception:
-                pass
 
-        # 3) DRF pagination (consistent payload)
-        paginator = DefaultPageNumberPagination()
-        page_items = paginator.paginate_queryset(data, request, view=self)
-        return paginator.get_paginated_response(page_items)
+        if ordering_param:
+            parts = [p.strip() for p in str(ordering_param).split(",") if p.strip()]
+            parsed = []
+            for p in parts:
+                desc = p.startswith("-")
+                key = p[1:] if desc else p
+                fn = order_map.get(key)
+                if fn:
+                    parsed.append((fn, desc))
+            # stable multi-key sort: apply from last to first
+            for fn, desc in reversed(parsed):
+                try:
+                    data.sort(key=fn, reverse=desc)
+                except Exception:
+                    # ignore sort errors for robustness
+                    pass
+
+    # DRF pagination for consistency with other list endpoints
+    paginator = DefaultPageNumberPagination()
+    page_items = paginator.paginate_queryset(data, request, view=self)
+    return paginator.get_paginated_response(page_items)
 
 
 class CamerasListView(SafeOrderingMixin, APIView):

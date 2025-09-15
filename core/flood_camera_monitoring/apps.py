@@ -13,10 +13,3 @@ class FloodCameraMonitoringConfig(AppConfig):
             from .infra import models  # noqa: F401
         except Exception:
             pass
-
-        # Ensure Celery tasks are registered (worker may not autodiscover nested paths)
-        try:
-            from .infra import tasks  # noqa: F401
-        except Exception:
-            # Intencionalmente silencioso para não quebrar boot; logs do worker indicarão se faltar task
-            pass
