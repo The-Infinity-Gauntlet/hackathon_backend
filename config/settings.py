@@ -170,9 +170,8 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1
 from celery.schedules import crontab  # type: ignore
 
 CELERY_BEAT_SCHEDULE = {
-    # Unified periodic job: compute predictions, cache them, and persist alerts quickly
-    "flood-refresh-all-and-cache": {
-        "task": "core.flood_camera_monitoring.tasks.refresh_all_and_cache_task",
+    "flood-analyze-all-cameras": {
+        "task": "core.flood_camera_monitoring.infra.tasks.analyze_all_cameras_task",
         "schedule": 300.00,
     },
 }
@@ -211,8 +210,6 @@ CAMERA_INSTALL_URL = os.getenv("CAMERA_INSTALL_URL", "")
 # Redis URL dedicated for application cache (separate DB from Celery broker/results).
 # Defaults to DB 2 on the same Redis host.
 REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2")
-# TTL (seconds) for the aggregated predict-all cache
-PREDICT_CACHE_TTL_SECONDS = int(os.getenv("FLOOD_PREDICT_CACHE_TTL", "300"))
 
 # Django REST Framework
 # Native pagination defaults (page & page_size query params supported)
