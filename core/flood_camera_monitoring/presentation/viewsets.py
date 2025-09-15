@@ -1,12 +1,6 @@
-from core.flood_camera_monitoring.application.use_cases.analyze_all_cameras import (
-    AnalyzeAllCamerasService,
-)
-from core.flood_camera_monitoring.application.use_cases.predict_all_cameras import (
-    PredictAllCamerasService,
-)
-from rest_framework.views import APIView
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
 
 from core.flood_camera_monitoring.presentation.serializers import (
     StreamSnapshotSerializer,
@@ -34,6 +28,12 @@ from core.flood_camera_monitoring.infra.tasks import refresh_predict_all_cache_t
 from core.flood_camera_monitoring.application.dto.snapshot_request import (
     SnapshotDetectRequest,
 )
+from core.flood_camera_monitoring.application.use_cases.analyze_all_cameras import (
+    AnalyzeAllCamerasService,
+)
+from core.flood_camera_monitoring.application.use_cases.predict_all_cameras import (
+    PredictAllCamerasService,
+)
 from core.flood_camera_monitoring.infra.models import Camera
 import uuid
 from config.pagination import DefaultPageNumberPagination
@@ -44,68 +44,22 @@ import os
 import redis
 
 
-class StreamSnapshotDetectView(APIView):
-    """HTTP endpoint: pega 1 frame da stream e retorna a predição."""
+class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
+    # Ordering config for cameras list
+    ordering_map = {
+        "description": "description",
+        "created_at": "created_at",
+        "updated_at": "updated_at",
+        "status": "status",
+        "neighborhood": "neighborhood__name",
+        "region": "neighborhood__region__name",
+        "latitude": "latitude",
+        "longitude": "longitude",
+    }
+    default_ordering = "description"
 
-    def post(self, request, *args, **kwargs):
-        serializer = StreamSnapshotSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        clf = build_default_classifier()
-        stream = OpenCVVideoStream(data["stream_url"])  # implements VideoStreamPort
-        service = DetectFloodSnapshotFromStream(classifier=clf, stream=stream)
-        try:
-            res = service.execute(
-                SnapshotDetectRequest(
-                    timeout_seconds=float(data.get("timeout_seconds", 5.0))
-                )
-            )
-        except TimeoutError:
-            return Response(
-                {"detail": "Could not capture frame"},
-                status=status.HTTP_504_GATEWAY_TIMEOUT,
-            )
-
-        return Response(build_prediction_payload(res))
-
-
-class StreamBatchDetectView(APIView):
-    """HTTP endpoint: executa N iterações rápidas e retorna a lista de resultados."""
-
-    def post(self, request, *args, **kwargs):
-        serializer = StreamBatchSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        clf = build_default_classifier()
-        stream = OpenCVVideoStream(data["stream_url"])  # VideoStreamPort
-        service = DetectFloodFromStream(classifier=clf, stream=stream)
-        req = StreamDetectRequest(
-            stream_url=data["stream_url"],
-            interval_seconds=float(data.get("interval_seconds", 2.0)),
-            max_iterations=int(data.get("max_iterations", 3)),
-        )
-
-        results = [build_prediction_payload(res) for res in service.run(req)]
-
-        return Response(
-            {
-                "results": results,
-            }
-        )
-
-
-class HealthcheckView(APIView):
-    """Health endpoint: verifica modelo, DB e Redis.
-
-    - Modelo baixado: checa existência e tamanho do checkpoint e evita LFS pointer
-    - DB OK: abre um cursor e executa um SELECT 1
-    - Redis OK: ping no broker configurado (CELERY_BROKER_URL)
-    """
-
-    def get(self, request, *args, **kwargs):
-        # 1) Modelo
+    @action(detail=False, methods=["get"], url_path="health")
+    def health(self, request):
         env_path = os.getenv("FLOOD_MODEL_PATH")
         if env_path:
             checkpoint_path = Path(env_path)
@@ -138,7 +92,7 @@ class HealthcheckView(APIView):
             and not looks_like_lfs_pointer(checkpoint_path)
         )
 
-        # 2) DB
+        # DB
         db_ok = False
         db_error = None
         try:
@@ -149,7 +103,7 @@ class HealthcheckView(APIView):
         except Exception as e:
             db_error = str(e)
 
-        # 3) Redis (Celery broker)
+        # Redis broker
         redis_ok = False
         redis_error = None
         redis_url = getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0")
@@ -169,10 +123,7 @@ class HealthcheckView(APIView):
                 "exists": model_exists,
                 "size": model_size,
             },
-            "database": {
-                "ok": db_ok,
-                **({"error": db_error} if db_error else {}),
-            },
+            "database": {"ok": db_ok, **({"error": db_error} if db_error else {})},
             "redis": {
                 "ok": redis_ok,
                 "url": redis_url,
@@ -186,31 +137,8 @@ class HealthcheckView(APIView):
             ),
         )
 
-
-class AnalyzeAllCamerasView(APIView):
-    """HTTP endpoint para disparar a análise de todas as câmeras ativas.
-
-    Retorna o número de registros salvos (confidence < 60%).
-    """
-
-    def post(self, request, *args, **kwargs):
-        service = AnalyzeAllCamerasService()
-        saved = service.run()
-        return Response(
-            {
-                "saved": saved,
-            }
-        )
-
-
-class PredictAllCamerasView(APIView):
-    """HTTP endpoint para retornar a predição de todas as câmeras ativas.
-
-    Não persiste nada; retorna lista com probabilidades (inclui 'normal').
-    """
-
-    def get(self, request, *args, **kwargs):
-        # Fast path: try cache first
+    @action(detail=False, methods=["get"], url_path="predict/all")
+    def predict_all(self, request):
         force_refresh = str(request.query_params.get("refresh", "false")).lower() in (
             "1",
             "true",
@@ -220,16 +148,14 @@ class PredictAllCamerasView(APIView):
         if cached and isinstance(cached, dict) and "data" in cached:
             data = cached["data"]
         else:
-            # Compute synchronously if no cache (first call) to ensure data is available
             service = PredictAllCamerasService()
             data = service.run()
-            # trigger async refresh to keep cache warm next time
             try:
                 refresh_predict_all_cache_task.delay()
             except Exception:
                 pass
 
-        # Safe ordering for in-memory list
+        # optional sorting of in-memory results
         ordering_param = request.query_params.get("ordering", "description")
         order_map = {
             "description": lambda it: (it.get("camera") or {}).get("description") or "",
@@ -245,7 +171,6 @@ class PredictAllCamerasView(APIView):
                 (it.get("probabilities") or {}).get("medium", 0.0)
             ),
         }
-
         if ordering_param:
             parts = [p.strip() for p in str(ordering_param).split(",") if p.strip()]
             parsed = []
@@ -255,48 +180,66 @@ class PredictAllCamerasView(APIView):
                 fn = order_map.get(key)
                 if fn:
                     parsed.append((fn, desc))
-            # stable multi-key sort: apply from last to first
             for fn, desc in reversed(parsed):
                 try:
                     data.sort(key=fn, reverse=desc)
                 except Exception:
-                    # ignore sort errors for robustness
                     pass
 
-        # DRF pagination for consistency with other list endpoints
         paginator = DefaultPageNumberPagination()
         page_items = paginator.paginate_queryset(data, request, view=self)
         return paginator.get_paginated_response(page_items)
 
+    @action(detail=False, methods=["post"], url_path="predict/snapshot")
+    def predict_snapshot(self, request):
+        serializer = StreamSnapshotSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-class CamerasListView(SafeOrderingMixin, APIView):
-    """Lista todas as câmeras com possibilidade de filtro por bairro (neighborhood_id) ou região (region_id).
-    Parâmetros de query:
-      - neighborhood_id: UUID de Neighborhood
-      - region_id: UUID de Region (retorna câmeras cujos endereços pertencem a bairros dessa região)
-      - neighborhood: filtro por nome do bairro (icontains)
-      - ordering: campos para ordenação, separados por vírgula (ex.: "description,-created_at,neighborhood").
-                  Campos permitidos: description, created_at, updated_at, status, neighborhood, region, latitude, longitude
-      - page: número da página (>=1). Default 1
-      - page_size: itens por página (1..100). Default 20
-    Ambos podem ser combinados; se ambos presentes, aplica interseção.
-    """
+        clf = build_default_classifier()
+        stream = OpenCVVideoStream(data["stream_url"])  # implements VideoStreamPort
+        service = DetectFloodSnapshotFromStream(classifier=clf, stream=stream)
+        try:
+            res = service.execute(
+                SnapshotDetectRequest(
+                    timeout_seconds=float(data.get("timeout_seconds", 5.0))
+                )
+            )
+        except TimeoutError:
+            return Response(
+                {"detail": "Could not capture frame"},
+                status=status.HTTP_504_GATEWAY_TIMEOUT,
+            )
 
-    # Campos liberados para ordenação e padrão
-    ordering_map = {
-        "description": "description",
-        "created_at": "created_at",
-        "updated_at": "updated_at",
-        "status": "status",
-        "neighborhood": "neighborhood__name",
-        "region": "neighborhood__region__name",
-        "latitude": "latitude",
-        "longitude": "longitude",
-    }
-    default_ordering = "description"
+        return Response(build_prediction_payload(res))
 
-    def get(self, request, *args, **kwargs):
-        # Filters: neighborhood_id (UUID), region_id (UUID), neighborhood (name icontains)
+    @action(detail=False, methods=["post"], url_path="predict/batch")
+    def predict_batch(self, request):
+        serializer = StreamBatchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        clf = build_default_classifier()
+        stream = OpenCVVideoStream(data["stream_url"])  # VideoStreamPort
+        service = DetectFloodFromStream(classifier=clf, stream=stream)
+        req = StreamDetectRequest(
+            stream_url=data["stream_url"],
+            interval_seconds=float(data.get("interval_seconds", 2.0)),
+            max_iterations=int(data.get("max_iterations", 3)),
+        )
+
+        results = [build_prediction_payload(res) for res in service.run(req)]
+
+        return Response({"results": results})
+
+    @action(detail=False, methods=["post"], url_path="analyze/all")
+    def analyze_all(self, request):
+        service = AnalyzeAllCamerasService()
+        saved = service.run()
+        return Response({"saved": saved})
+
+    @action(detail=False, methods=["get"], url_path="cameras")
+    def cameras(self, request):
         neighborhood_id = request.query_params.get("neighborhood_id")
         region_id = request.query_params.get("region_id")
         neighborhood_name = request.query_params.get("neighborhood")
@@ -304,7 +247,6 @@ class CamerasListView(SafeOrderingMixin, APIView):
 
         qs = Camera.objects.select_related("neighborhood", "neighborhood__region").all()
 
-        # Validate and apply UUID filters
         if neighborhood_id:
             try:
                 nb_uuid = uuid.UUID(str(neighborhood_id))
@@ -321,25 +263,22 @@ class CamerasListView(SafeOrderingMixin, APIView):
                 qs = qs.filter(neighborhood__region_id=rg_uuid)
             except (ValueError, AttributeError):
                 return Response(
-                    {"detail": "region_id inválido"},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"detail": "region_id inválido"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
         if neighborhood_name:
             qs = qs.filter(neighborhood__name__icontains=neighborhood_name)
 
-        # Safe ordering via mixin
         qs = self.apply_ordering(qs, ordering_param)
 
-        # DRF native pagination (PageNumberPagination)
         paginator = DefaultPageNumberPagination()
         page_items = paginator.paginate_queryset(qs, request, view=self)
 
-        data = []
+        data_out = []
         for cam in page_items:
             nb = cam.neighborhood
             rg = nb.region if nb else None
-            data.append(
+            data_out.append(
                 {
                     "id": str(cam.id),
                     "description": cam.description,
@@ -347,25 +286,12 @@ class CamerasListView(SafeOrderingMixin, APIView):
                     "video_hls": cam.video_hls,
                     "video_embed": cam.video_embed,
                     "neighborhood": (
-                        {
-                            "id": str(nb.id),
-                            "name": nb.name,
-                        }
-                        if nb
-                        else None
+                        {"id": str(nb.id), "name": nb.name} if nb else None
                     ),
-                    "region": (
-                        {
-                            "id": str(rg.id),
-                            "name": rg.name,
-                        }
-                        if rg
-                        else None
-                    ),
+                    "region": ({"id": str(rg.id), "name": rg.name} if rg else None),
                     "latitude": cam.latitude,
                     "longitude": cam.longitude,
                 }
             )
 
-        # get_paginated_response will include count/next/previous and ordering
-        return paginator.get_paginated_response(data)
+        return paginator.get_paginated_response(data_out)

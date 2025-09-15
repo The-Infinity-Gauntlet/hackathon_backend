@@ -1,6 +1,10 @@
-from django.urls import path
-from core.addressing.presentation.views import NeighborhoodGeoJSONView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from core.addressing.presentation.viewsets import AddressingViewSet
+
+router = DefaultRouter()
+router.register(r"", AddressingViewSet, basename="addressing")
 
 urlpatterns = [
-    path("dados_geograficos", NeighborhoodGeoJSONView.as_view()),
+    path("", include(router.urls)),
 ]
