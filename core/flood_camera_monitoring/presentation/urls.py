@@ -1,24 +1,10 @@
-from django.urls import path
-from core.flood_camera_monitoring.presentation.views import (
-    StreamSnapshotDetectView,
-    StreamBatchDetectView,
-    AnalyzeAllCamerasView,
-    PredictAllCamerasView,
-    CamerasListView,
-)
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from core.flood_camera_monitoring.presentation.viewsets import FloodMonitoringViewSet
+
+router = DefaultRouter()
+router.register(r"", FloodMonitoringViewSet, basename="flood-monitoring")
 
 urlpatterns = [
-    path(
-        "stream/snapshot",
-        StreamSnapshotDetectView.as_view(),
-        name="stream-snapshot-detect",
-    ),
-    path("stream/batch", StreamBatchDetectView.as_view(), name="stream-batch-detect"),
-    path("analyze/run", AnalyzeAllCamerasView.as_view(), name="analyze-all-cameras"),
-    path(
-        "predict/all",
-        PredictAllCamerasView.as_view(),
-        name="predict-all-cameras",
-    ),
-    path("cameras", CamerasListView.as_view(), name="cameras-list"),
+    path("", include(router.urls)),
 ]

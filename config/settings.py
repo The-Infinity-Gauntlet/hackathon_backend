@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "rest_framework",
     "core",
+    "core.users",
     "core.weather",
     "core.occurrences",
     "core.forecast",
@@ -202,4 +203,39 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+# Custom: Public link to camera installation instructions/UI
+# Read from environment variable CAMERA_INSTALL_URL; defaults to empty string if not set
+CAMERA_INSTALL_URL = os.getenv("CAMERA_INSTALL_URL", "")
+
+# Redis URL dedicated for application cache (separate DB from Celery broker/results).
+# Defaults to DB 2 on the same Redis host.
+REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2")
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPageNumberPagination",
+    # Default page size, can be overridden via ?page_size= and capped by paginator
+    "PAGE_SIZE": int(os.getenv("API_PAGE_SIZE", "20")),
+    # Use SimpleJWT with custom user resolver
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "core.users.presentation.auth.AppJWTAuthentication",
+    ),
+}
+
+# djangorestframework-simplejwt configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_MINUTES", "60"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "7"))),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
