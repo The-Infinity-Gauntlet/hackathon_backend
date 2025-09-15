@@ -20,21 +20,23 @@ class User:
 
     def __init__(
         self,
-        id: Optional[int],
+        id: Optional[str],
         name: str,
         email: str,
-        date_of_birth: date | datetime | str,
-        google_sub: str,
-        profile_picture: str,
-        create_at: datetime | str | None,
-        update_at: datetime | str | None,
+        date_of_birth: date | datetime | str | None = None,
+        google_sub: Optional[str] = None,
+        profile_picture: str = "",
+        create_at: datetime | str | None = None,
+        update_at: datetime | str | None = None,
         type: "User.UserType | str" = UserType.STANDARD,
     ) -> None:
-        self.id: Optional[int] = id
+        self.id: Optional[str] = str(id) if id is not None else None
         self.name: str = name
         self.email: str = email
-        self.date_of_birth: date = self._to_date(date_of_birth)
-        self.google_sub: str = google_sub
+        self.date_of_birth: Optional[date] = (
+            self._to_date(date_of_birth) if date_of_birth is not None else None
+        )
+        self.google_sub: Optional[str] = google_sub
         self.profile_picture: str = profile_picture
         now_utc = datetime.now(timezone.utc)
         created = self._to_datetime(create_at) if create_at is not None else now_utc

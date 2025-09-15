@@ -7,13 +7,4 @@ volumes:
 	pgdata:
 		external: true
 		name: docker_pgdata
-services:
-	db:
-		volumes:
-			- pgdata:/var/lib/postgresql/data
-
-volumes:
-	pgdata:
-		external: true
-		name: docker_pgdata
 
