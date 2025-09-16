@@ -8,13 +8,17 @@ class StreamSnapshotSerializer(serializers.Serializer):
 
 class StreamBatchSerializer(serializers.Serializer):
     stream_url = serializers.CharField()
-    interval_seconds = serializers.FloatField(required=False, min_value=0.1, default=2.0)
-    max_iterations = serializers.IntegerField(required=False, min_value=1, max_value=20, default=3)
+    interval_seconds = serializers.FloatField(
+        required=False, min_value=0.1, default=2.0
+    )
+    max_iterations = serializers.IntegerField(
+        required=False, min_value=1, max_value=20, default=3
+    )
 
 
 class PredictAllCamerasResponseSerializer(serializers.Serializer):
     camera = serializers.DictField()
     is_flooded = serializers.BooleanField()
     confidence = serializers.FloatField()
-    probabilities = serializers.DictField()  # {"normal": float, "flooded": float, "medium": float}
+    probabilities = serializers.DictField()
     meta = serializers.DictField(required=False)

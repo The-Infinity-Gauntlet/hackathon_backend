@@ -261,7 +261,7 @@ cython_debug/
 poetry.toml
 
 # ruff
-.ruff_cache/
+.ruff_cache/*
 
 # LSP config files
 pyrightconfig.json
@@ -270,7 +270,7 @@ pyrightconfig.json
 /core/flood_camera_monitoring/data
 
 # ML models and checkpoints (do not commit large binaries)
-/media/models/
+/core/flood_camera_monitoring/infra/machine_model
+core/flood_camera_monitoring/infra/machine_model/best_real_model.pth
 
-
-# End of https://www.toptal.com/developers/gitignore/api/python,django
+# End of https://www.toptal.com/developers/gitignore/api/python,djang

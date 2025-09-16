@@ -1,13 +1,14 @@
-from rest_framework.views import APIView
+from rest_framework import status, viewsets
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.decorators import action
 
 from core.addressing.application.services import build_neighborhoods_feature_collection
 from core.addressing.infra.repositories import DjangoNeighborhoodRepository
 
 
-class NeighborhoodGeoJSONView(APIView):
-    def get(self, request):
+class AddressingViewSet(viewsets.ViewSet):
+    @action(detail=False, methods=["get"], url_path="dados_geograficos")
+    def dados_geograficos(self, request):
         city = request.query_params.get("city")
         region = request.query_params.get("region")
         all_param = request.query_params.get("all")
@@ -40,7 +41,6 @@ class NeighborhoodGeoJSONView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Build response through application service + repository (Clean Architecture)
         repo = DjangoNeighborhoodRepository()
         collection = build_neighborhoods_feature_collection(
             repo, all_flag=all_flag, city=city, region=region
