@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 from celery.schedules import crontab
@@ -54,7 +55,7 @@ INSTALLED_APPS = [
     "core.flood_camera_monitoring",
     "core.uploader",
     "core.addressing",
-    "core.flood_point_registering"
+    "core.flood_point_registering",
 ]
 
 
@@ -91,31 +92,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Allow selecting DB engine by env. Defaults to SQLite for local/dev simplicity.
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
 
-if DB_ENGINE == "postgres":
-    # PostgreSQL configuration via env, matching docker-compose defaults
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME", "hackathon"),
-            "USER": os.getenv("DB_USER", "hackathon"),
-            "PASSWORD": os.getenv("DB_PASSWORD", "hackathon123"),
-            "HOST": os.getenv("DB_HOST", "db"),
-            "PORT": os.getenv("DB_PORT", "5432"),
-        }
-    }
-else:
-    # SQLite (default)
-    # Allow overriding the SQLite file path via env (useful to bind a named volume in Docker)
-    DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", str(BASE_DIR / "db.sqlite3"))
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": DB_SQLITE_PATH,
-        }
-    }
+DATABASES = {
+    "default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+}
 
 
 # Password validation
