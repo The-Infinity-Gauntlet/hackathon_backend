@@ -1,18 +1,25 @@
-import mercadopago, os, uuid
-from django.http import JsonResponse
+import os, uuid
+from django.http import JsonResponse, HttpResponseServerError
 from core.donation.domain.entities import Payment
 
+
 class MercadoPagoRepository:
-    sdk = mercadopago.SDK(os.getenv("ACCESS_TOKEN"))
+    def __init__(self):
+        try:
+            import mercadopago  # type: ignore
+        except ModuleNotFoundError as e:
+            raise RuntimeError(
+                "mercadopago package not installed. Install it to use donation endpoints."
+            ) from e
+        self._mp = mercadopago
+        self.sdk = mercadopago.SDK(os.getenv("ACCESS_TOKEN"))
 
     def paymentPix(self, payment: Payment):
-        request_options = mercadopago.config.RequestOptions()
-        request_options.custom_headers = {
-            'x-idempotency-key': str(uuid.uuid4())
-        }
+        request_options = self._mp.config.RequestOptions()
+        request_options.custom_headers = {"x-idempotency-key": str(uuid.uuid4())}
 
         payment_data = {
-            "transaction_amount": payment.amount, # transaction_amount
+            "transaction_amount": payment.amount,  # transaction_amount
             "description": payment.description,
             "payment_method_id": payment.payment_method_id,
             "payer": {
@@ -21,21 +28,19 @@ class MercadoPagoRepository:
                 "last_name": payment.last_name,
                 "identification": {
                     "type": payment.identification_type,
-                    "number": payment.identification_number
-                }
-            }
+                    "number": payment.identification_number,
+                },
+            },
         }
 
         response = self.sdk.payment().create(payment_data, request_options)
         payment = response["response"]
 
         return JsonResponse(payment, safe=False)
-    
+
     def paymentCard(self, payment: Payment):
-        request_options = mercadopago.config.RequestOptions()
-        request_options.custom_headers = {
-            'x-idempotency-key': str(uuid.uuid4())
-        }
+        request_options = self._mp.config.RequestOptions()
+        request_options.custom_headers = {"x-idempotency-key": str(uuid.uuid4())}
 
         payment_data = {
             "transaction_amount": payment.amount,
@@ -48,21 +53,19 @@ class MercadoPagoRepository:
                 "email": payment.email,
                 "identification": {
                     "type": payment.identification_type,
-                    "number": payment.identification_number
-                }
-            }
+                    "number": payment.identification_number,
+                },
+            },
         }
 
         response = self.sdk.payment().create(payment_data, request_options)
         payment = response["response"]
 
         return JsonResponse(payment, safe=False)
-    
+
     def paymentTicket(self, payment: Payment):
-        request_options = mercadopago.config.RequestOptions()
-        request_options.custom_headers = {
-            'x-idempotency-key': str(uuid.uuid4())
-        }
+        request_options = self._mp.config.RequestOptions()
+        request_options.custom_headers = {"x-idempotency-key": str(uuid.uuid4())}
 
         payment_data = {
             "transaction_amount": payment.amount,
@@ -74,7 +77,7 @@ class MercadoPagoRepository:
                 "last_name": payment.last_name,
                 "identification": {
                     "type": payment.identification_type,
-                    "number": payment.identification_number
+                    "number": payment.identification_number,
                 },
                 "address": {
                     "zip_code": payment.zip_code,
@@ -82,16 +85,16 @@ class MercadoPagoRepository:
                     "street_number": payment.street_number,
                     "neighborhood": payment.neighborhood,
                     "city": payment.city,
-                    "federal_unit": payment.federal_unit
-                }
-            }
+                    "federal_unit": payment.federal_unit,
+                },
+            },
         }
 
         response = self.sdk.payment().create(payment_data, request_options)
         payment = response["response"]
 
         return JsonResponse(payment, safe=False)
-    
+
     def saved_card(self, payment: Payment):
         # Cria um cliente para ser associado ao cartão
         customer_data = {
@@ -103,7 +106,7 @@ class MercadoPagoRepository:
         # Cria o cartão associado ao cliente
         card_data = {
             "token": payment.token,
-            "payment_method_id": payment.payment_method_id
+            "payment_method_id": payment.payment_method_id,
         }
         card_response = self.sdk.card().create(customer["id"], card_data)
         card = card_response["response"]

@@ -2,6 +2,21 @@ from django.db import models
 import uuid
 
 
+class City(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["name"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return self.name
+
+
 class Address(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     street = models.CharField(max_length=255)
@@ -41,6 +56,13 @@ class Neighborhood(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     city = models.CharField(max_length=120)
+    city_ref = models.ForeignKey(
+        "addressing.City",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="neighborhoods",
+    )
     region = models.ForeignKey(
         "Region",
         null=True,
@@ -69,6 +91,13 @@ class Region(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     city = models.CharField(max_length=120)
+    city_ref = models.ForeignKey(
+        "addressing.City",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="regions",
+    )
     props = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

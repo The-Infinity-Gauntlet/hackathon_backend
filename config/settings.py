@@ -92,9 +92,21 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Prefer DATABASE_URL; if missing, build from POSTGRES_* env vars; else fallback to sqlite
+_db_url = os.getenv("DATABASE_URL")
+if not _db_url:
+    _pg_user = os.getenv("POSTGRES_USER")
+    _pg_pass = os.getenv("POSTGRES_PASSWORD")
+    _pg_db = os.getenv("POSTGRES_DB")
+    _pg_host = os.getenv("POSTGRES_HOST", "db")
+    _pg_port = os.getenv("POSTGRES_PORT", "5432")
+    if _pg_user and _pg_pass and _pg_db:
+        _db_url = f"postgresql://{_pg_user}:{_pg_pass}@{_pg_host}:{_pg_port}/{_pg_db}"
 
 DATABASES = {
-    "default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+    "default": dj_database_url.config(
+        default=_db_url or f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+    )
 }
 
 
