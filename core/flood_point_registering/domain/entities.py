@@ -1,14 +1,29 @@
-import datetime
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Optional
 
+
+@dataclass
 class Flood_Point_Register:
-    def __init__(self, city: int, region_id: int, neighborhood: int, possibility: float, create_at: datetime, finished_at: datetime, props: str) -> None:
-        self.city = city
-        self.region_id = region_id
-        self.neighborhood = neighborhood
-        self.possibility = possibility
-        self.created_at = create_at
-        self.finished_at = finished_at
-        self.props = props
+    """Domain entity for a flood point register.
+
+    This mirrors the simplified persistence model:
+    - region: id (int/uuid) of Region
+    - neighborhood: id (int/uuid) of Neighborhood
+    - possibility: float in [0,1]
+    - created_at/finished_at: datetimes delimiting the effect window
+    - props: arbitrary JSON (GeoJSON Feature expected by presentation layer)
+    """
+
+    id: Optional[int] = None
+    region: Any = None
+    neighborhood: Any = None
+    possibility: float = 0.0
+    created_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    props: Any = None
 
     def flood_active(self, now: datetime) -> bool:
-        return self.create_at <= now <= self.finished_at
+        if self.created_at is None or self.finished_at is None:
+            return False
+        return self.created_at <= now <= self.finished_at
