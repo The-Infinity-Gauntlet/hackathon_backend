@@ -1,4 +1,5 @@
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -340,12 +341,7 @@ class AnalyzeAllCamerasView(APIView):
     def post(self, request, *args, **kwargs):
         service = AnalyzeAllCamerasService()
         saved = service.run()
-        return Response(
-            payload,
-            status=(
-                status.HTTP_200_OK if all_ok else status.HTTP_503_SERVICE_UNAVAILABLE
-            ),
-        )
+        return Response({"saved": saved}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path="predict/all")
     def predict_all(self, request):
@@ -506,7 +502,7 @@ class AnalyzeAllCamerasView(APIView):
             )
 
         # get_paginated_response will include count/next/previous and ordering
-        return paginator.get_paginated_response(data)
+        return paginator.get_paginated_response(data_out)
 
 
 class HlsLoopInfoView(APIView):
