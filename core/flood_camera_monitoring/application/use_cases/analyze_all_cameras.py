@@ -49,6 +49,13 @@ class AnalyzeAllCamerasService:
         for cam in Camera.objects.filter(status=Camera.CameraStatus.ACTIVE).iterator():
             # Escolhe a URL correta do stream; o campo antigo 'video_url' foi removido.
             stream_url = getattr(cam, "video_hls", None)
+            # Pular câmeras de demonstração (loop) para não persistir registros
+            if isinstance(stream_url, str) and stream_url.startswith("loop:"):
+                logger.info(
+                    "Skipping demo loop camera id=%s for persistence.",
+                    getattr(cam, "id", None),
+                )
+                continue
             if not stream_url:
                 logger.warning(
                     "Camera id=%s não possui 'video_hls' configurado. Pulando.",

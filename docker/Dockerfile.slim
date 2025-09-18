@@ -9,6 +9,7 @@ WORKDIR /app
 # System libs for OpenCV + Geo stack (GDAL/GEOS/PROJ) + build essentials (removed later)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 \
+    ffmpeg \
     gdal-bin libgdal-dev \
     libgeos-dev \
     proj-bin libproj-dev \
