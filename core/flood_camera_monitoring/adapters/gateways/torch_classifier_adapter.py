@@ -274,6 +274,13 @@ class TorchFloodClassifier(FloodClassifierPort):
         probabilities = FloodProbabilities(
             normal=pct_normal, flooded=pct_flooded, medium=pct_medium
         )
+        # Define severidade coerente com o rótulo predito
+        if pred_label == "flooded":
+            severity = FloodSeverity.FLOODED
+        elif pred_label == "medium":
+            severity = FloodSeverity.MEDIUM
+        else:
+            severity = FloodSeverity.NORMAL
         return FloodAssessment(
             confidence=confidence,
             is_flooded=is_flooded,
