@@ -98,6 +98,7 @@ STATUS_MAP = {"ACTIVE": 1, "INACTIVE": 2, "OFFLINE": 3}
 
 def forwards_func(apps, schema_editor):
     Camera = apps.get_model("flood_camera_monitoring", "Camera")
+    Neighborhood = apps.get_model("addressing", "Neighborhood")
 
     for item in CAMERAS:
         desc = item["description"]
@@ -116,7 +117,7 @@ def forwards_func(apps, schema_editor):
         }
 
         nb_id = item.get("neighborhood_id")
-        if nb_id:
+        if nb_id and Neighborhood.objects.filter(id=nb_id).exists():
             updates["neighborhood_id"] = nb_id
 
         qs.update(**updates)

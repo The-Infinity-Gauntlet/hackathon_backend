@@ -57,7 +57,6 @@ class FloodProbabilities:
     """
 
     normal: float
-    medium: float
     flooded: float
     medium: float
 
