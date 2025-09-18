@@ -1,4 +1,5 @@
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -488,7 +489,7 @@ class HealthcheckView(APIView):
             )
 
         # get_paginated_response will include count/next/previous and ordering
-        return paginator.get_paginated_response(data)
+        return paginator.get_paginated_response(data_out)
 
 
 class HlsLoopInfoView(APIView):

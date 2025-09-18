@@ -1,10 +1,6 @@
 from django.urls import path
-from core.flood_camera_monitoring.presentation.views import (
-    StreamSnapshotDetectView,
-    StreamBatchDetectView,
-    AnalyzeAllCamerasView,
-    PredictAllCamerasView,
-    CamerasListView,
+from core.flood_camera_monitoring.presentation.viewsets import (
+    FloodMonitoringViewSet,
     HealthcheckView,
     HlsLoopInfoView,
     HlsPredictView,
@@ -18,10 +14,14 @@ urlpatterns = [
     ),
     path(
         "predict/all",
-        PredictAllCamerasView.as_view(),
+        FloodMonitoringViewSet.as_view({"get": "predict_all"}),
         name="predict-all-cameras",
     ),
-    path("cameras", CamerasListView.as_view(), name="cameras-list"),
+    path(
+        "cameras",
+        FloodMonitoringViewSet.as_view({"get": "cameras"}),
+        name="cameras-list",
+    ),
     path("health", HealthcheckView.as_view(), name="health"),
     # Simplified HLS live loop endpoints
     path("demo", HlsLoopInfoView.as_view(), name="hls-demo-info"),
