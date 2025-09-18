@@ -9,10 +9,8 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 
 # Explicitly wire broker and backend (env overrides settings if provided)
-app.conf.broker_url = os.environ.get("CELERY_BROKER_URL") or "redis://redis_test:6379/0"
-app.conf.result_backend = (
-    os.environ.get("CELERY_RESULT_BACKEND") or "redis://redis_test:6379/1"
-)
+app.conf.broker_url = os.environ.get("CELERY_BROKER_URL")
+app.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND")
 app.conf.timezone = os.environ.get("TZ", "America/Sao_Paulo")
 
 app.conf.beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"

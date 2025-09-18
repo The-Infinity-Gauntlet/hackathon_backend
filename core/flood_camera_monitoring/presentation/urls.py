@@ -13,16 +13,16 @@ urlpatterns = [
         name="stream-snapshot-detect",
     ),
     path(
-        "predict/all",
+        "predict/all/",
         FloodMonitoringViewSet.as_view({"get": "predict_all"}),
         name="predict-all-cameras",
     ),
     path(
-        "cameras",
+        "cameras/",
         FloodMonitoringViewSet.as_view({"get": "cameras"}),
         name="cameras-list",
     ),
-    path("health", HealthcheckView.as_view(), name="health"),
+    path("health/", HealthcheckView.as_view(), name="health"),
     # Simplified HLS live loop endpoints
     path("demo", HlsLoopInfoView.as_view(), name="hls-demo-info"),
     path("demo/predict", HlsPredictView.as_view(), name="hls-demo-predict"),
