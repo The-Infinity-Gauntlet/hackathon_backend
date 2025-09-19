@@ -36,11 +36,36 @@ class Address(models.Model):
             base += f", {self.number}"
         return f"{base} - {self.city}/{self.state or ''}"
 
+class Neighborhood(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    props = models.JSONField(default=dict, blank=True)
+    # Store area in km^2 as a first-class field; geometry remains inside props
+    area_km2 = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["city"]),
+            models.Index(fields=["name"]),
+            models.Index(fields=["region"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"City {self.name}"
+
 
 class Neighborhood(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    city = models.CharField(max_length=120)
+    city = models.ForeignKey(
+        "City",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cities",
+    )
     region = models.ForeignKey(
         "Region",
         null=True,
@@ -63,7 +88,6 @@ class Neighborhood(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"Neighborhood {self.name} - {self.city}"
-
 
 class Region(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
