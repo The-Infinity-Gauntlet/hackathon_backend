@@ -4,7 +4,11 @@ from rest_framework import status
 
 from core.addressing.application.services import build_neighborhoods_feature_collection
 from core.addressing.infra.repositories import DjangoNeighborhoodRepository
-
+from rest_framework.viewsets import ModelViewSet
+from core.addressing.infra.models import Neighborhood
+from core.addressing.presentation.serializers import NeighborhoodSerializer
+from core.addressing.infra.models import Region
+from core.addressing.presentation.serializers import RegionSerializer
 
 class NeighborhoodGeoJSONView(APIView):
     def get(self, request):
@@ -46,3 +50,11 @@ class NeighborhoodGeoJSONView(APIView):
             repo, all_flag=all_flag, city=city, region=region
         )
         return Response(collection, status=status.HTTP_200_OK)
+
+class NeighborhoodViewSet(ModelViewSet):
+    queryset = Neighborhood.objects.all()
+    serializer_class = NeighborhoodSerializer
+
+class RegionViewSet(ModelViewSet):
+    queryset = Region.objects.all()
+    serializer_class = RegionSerializer
