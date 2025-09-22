@@ -97,19 +97,19 @@ class AnalyzeAllCamerasService:
 
             # Predict for all captured frames and aggregate
             assessments: list[PredictResponse] = []
-            best_idx_flooded = 0
-            best_idx_medium = 0
+            best_idx = 0
             best_flooded = -1.0
             flooded_series: list[float] = []
             for idx, fb in enumerate(frames):
                 a = clf.predict(fb)
                 assessments.append(a)
                 flooded = float(a.probabilities.flooded)
-                medium = float(getattr(a.probabilities, "medium", 0.0))
                 if flooded > best_flooded:
                     best_flooded = flooded
                     best_idx = idx
                 flooded_series.append(flooded)
+            # choose representative frame bytes to persist in records/logs
+            chosen_bytes = frames[best_idx] if frames else None
 
             mean_normal = sum(float(a.probabilities.normal) for a in assessments) / len(
                 assessments
@@ -168,13 +168,18 @@ class AnalyzeAllCamerasService:
                             is_flooded=True,
                             medium=False,
                             # Store the flooded probability used for the decision as confidence
-                            confidence=trigger_conf,
+                            confidence=decision_flooded,
                             prob_normal=mean_normal,
                             prob_flooded=mean_flooded,
                             prob_medium=mean_medium,
                             # Save the exact frame used for the decision with a unique name
-                            image=ContentFile(
-                                chosen_bytes, name=f"{cam.id}-{int(time.time())}.jpg"
+                            image=(
+                                ContentFile(
+                                    chosen_bytes,
+                                    name=f"{cam.id}-{int(time.time())}.jpg",
+                                )
+                                if chosen_bytes
+                                else None
                             ),
                         )
                 except Exception as e:
@@ -195,22 +200,13 @@ class AnalyzeAllCamerasService:
                             image=None,
                         )
                 saved += 1
-                status = "MEDIUM_SAVE" if trigger == "medium" else "FLOOD_SAVE"
+                status = "FLOOD_SAVE"
                 logger.info(
-                    (
-                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
-                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
-                    ),
-                    getattr(cam, "id", None),
-                    status,
-                    best_flooded,
-                    mean_flooded,
-                    mean_medium,
-                    mean_normal,
-                    mean_medium,
-                    float(chosen.confidence),
-                    len(assessments),
-                    float(self.strong_min),
+                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
+                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
+                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
+                    f"best_conf={float(decision_flooded):.2f} | frames={len(assessments)} | "
+                    f"threshold={float(self.strong_min):.2f}"
                 )
             elif medium_condition:
                 # Persist early-warning record (medium)
@@ -224,8 +220,13 @@ class AnalyzeAllCamerasService:
                             prob_normal=mean_normal,
                             prob_flooded=mean_flooded,
                             prob_medium=mean_medium,
-                            image=ContentFile(
-                                chosen_bytes, name=f"{cam.id}-{int(time.time())}.jpg"
+                            image=(
+                                ContentFile(
+                                    chosen_bytes,
+                                    name=f"{cam.id}-{int(time.time())}.jpg",
+                                )
+                                if chosen_bytes
+                                else None
                             ),
                         )
                 except Exception as e:
@@ -248,41 +249,23 @@ class AnalyzeAllCamerasService:
                 saved += 1
                 status = "MEDIUM_SAVE"
                 logger.info(
-                    (
-                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
-                        "mean_normal=%.2f | mean_medium=%.2f | frames=%d | criteria={band:%s,count:%d,trend:%s}"
-                    ),
-                    getattr(cam, "id", None),
-                    status,
-                    best_flooded,
-                    mean_flooded,
-                    mean_normal,
-                    mean_medium,
-                    len(assessments),
-                    str(medium_band),
-                    medium_frames,
-                    str(rising_trend),
+                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
+                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
+                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
+                    f"frames={len(assessments)} | criteria={{band:{medium_band},count:{medium_frames},trend:{rising_trend}}}"
                 )
             else:
                 status = "NO_FLOOD"
                 logger.info(
-                    (
-                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
-                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
-                    ),
-                    getattr(cam, "id", None),
-                    status,
-                    best_flooded,
-                    mean_flooded,
-                    mean_medium,
-                    mean_normal,
-                    mean_medium,
-                    float(decision_flooded),
-                    len(assessments),
-                    float(self.strong_min),
+                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
+                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
+                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
+                    f"best_conf={float(decision_flooded):.2f} | frames={len(assessments)} | "
+                    f"threshold={float(self.strong_min):.2f}"
                 )
 
             camera_label = f"({getattr(cam, 'description', '')})".strip()
+            # Keep row length aligned with headers below (7 columns)
             rows.append(
                 (
                     camera_label,
@@ -290,7 +273,6 @@ class AnalyzeAllCamerasService:
                     status,
                     f"{float(max(decision_flooded, decision_medium)):.2f}",
                     f"{mean_normal:.2f}",
-                    f"{mean_medium:.2f}",
                     f"{mean_flooded:.2f}",
                     f"{mean_medium:.2f}",
                 )
@@ -323,13 +305,17 @@ class AnalyzeAllCamerasService:
         max_widths: dict opcional com largura máxima por coluna (pelo header)
         """
         max_widths = max_widths or {}
+        headers = list(headers)
+        ncols = len(headers)
+        if ncols == 0:
+            return ""
 
         # Calcula larguras
-        widths = [len(h) for h in headers]
+        widths = [len(str(h)) for h in headers]
         for r in rows:
-            for i, cell in enumerate(r):
-                cell_str = str(cell)
-                # aplica truncamento por coluna se definido
+            # Ajusta por índice; tolera linhas menores/maiores
+            for i in range(ncols):
+                cell_str = str(r[i]) if i < len(r) else ""
                 col_name = headers[i]
                 limit = max_widths.get(col_name)
                 if limit and len(cell_str) > limit:
@@ -338,8 +324,8 @@ class AnalyzeAllCamerasService:
 
         def fmt_row(vals):
             out = []
-            for i, v in enumerate(vals):
-                s = str(v)
+            for i in range(ncols):
+                s = str(vals[i]) if i < len(vals) else ""
                 col_name = headers[i]
                 limit = max_widths.get(col_name)
                 if limit and len(s) > limit:
