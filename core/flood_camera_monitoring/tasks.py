@@ -14,8 +14,18 @@ def refresh_all_and_cache_task() -> int:
 
     logger = logging.getLogger(__name__)
     try:
-        service = AnalyzeAllCamerasService()
-        data, saved = service.run_and_collect()
+        # 1) Persist alerts (strong/medium) if thresholds met
+        analyze = AnalyzeAllCamerasService()
+        saved = analyze.run()
+
+        # 2) Compute lightweight predictions list for caching/endpoint
+        from core.flood_camera_monitoring.application.use_cases.predict_all_cameras import (
+            PredictAllCamerasService,
+        )
+
+        predict = PredictAllCamerasService()
+        data = predict.run()
+
         payload = {"data": data, "ts": int(__import__("time").time())}
         ttl = getattr(settings, "PREDICT_CACHE_TTL_SECONDS", 300)
         cache_set_json("flood:predict_all", payload, ex=int(ttl))
