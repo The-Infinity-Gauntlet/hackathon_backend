@@ -49,7 +49,7 @@ CSRF_TRUSTED_ORIGINS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Frontend em desenvolvimento
     "http://localhost:3000",
-    "https://*.fexcompany.me",
+    "https://aqua.fabricadesoftware.ifc.edu.br",
     "https://*.fabricadesoftware.ifc.edu.br",
 ]
 
@@ -57,15 +57,15 @@ CORS_ALLOWED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
-    "corsheaders",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_celery_beat",
+    "corsheaders",
     "rest_framework",
+    "django_celery_beat",
     "core",
     "core.users",
     "core.weather",
