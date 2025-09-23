@@ -5,10 +5,9 @@ from rest_framework.response import Response
 from core.users.presentation.serializers import (
     UserSerializer,
     SignupSerializer,
-    LoginSerializer,
 )
 from core.users.infra.models import User as DjangoUser
-from core.users.presentation.auth import generate_tokens_for_user
+from core.users.presentation.auth_views import generate_tokens_for_user
 from core.uploader.infra.django_storage_uploader import DjangoStorageUploader
 from core.uploader.application.services import UploadBinaryService
 
@@ -18,7 +17,6 @@ class UsersViewSet(viewsets.ViewSet):
 
     Routes:
       - POST /users/signup
-      - POST /users/login
       - GET  /users/me
     """
 
@@ -58,32 +56,6 @@ class UsersViewSet(viewsets.ViewSet):
         return Response(
             {"user": UserSerializer(user).data, "tokens": tokens},
             status=status.HTTP_201_CREATED,
-        )
-
-    @action(
-        detail=False,
-        methods=["post"],
-        url_path="login",
-        permission_classes=[permissions.AllowAny],
-    )
-    def login(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"].lower().strip()
-        try:
-            user = DjangoUser.objects.get(email=email)
-        except DjangoUser.DoesNotExist:
-            return Response(
-                {"detail": "Credenciais inválidas"}, status=status.HTTP_401_UNAUTHORIZED
-            )
-        if not user.check_password(serializer.validated_data["password"]):
-            return Response(
-                {"detail": "Credenciais inválidas"}, status=status.HTTP_401_UNAUTHORIZED
-            )
-        tokens = generate_tokens_for_user(user)
-        return Response(
-            {"user": UserSerializer(user).data, "tokens": tokens},
-            status=status.HTTP_200_OK,
         )
 
     @action(

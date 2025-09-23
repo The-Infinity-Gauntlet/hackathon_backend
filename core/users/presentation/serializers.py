@@ -15,11 +15,6 @@ class SignupSerializer(serializers.Serializer):
     profile_picture = serializers.FileField(required=False, allow_null=True)
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(min_length=6, max_length=128, write_only=True)
-
-
 class TokenPairSerializer(serializers.Serializer):
     access = serializers.CharField()
     refresh = serializers.CharField()
