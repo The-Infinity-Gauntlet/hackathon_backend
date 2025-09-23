@@ -22,16 +22,19 @@ from django.conf.urls.static import static
 
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
+from core.users.presentation.auth_views import EmailTokenObtainPairView
 
 router = DefaultRouter()
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     # JWT auth endpoints
-    path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    # Single auth token route using email/password
+    path(
+        "api/auth/token/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"
+    ),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/users/", include("core.users.presentation.urls")),
     path("api/weather/", include("core.weather.presentation.urls")),
@@ -44,7 +47,9 @@ urlpatterns = [
     path("api/upload/", include("core.uploader.presentation.urls")),
     path("api/addressing/", include("core.addressing.presentation.urls")),
     path("api/donate/", include("core.donation.presentation.urls")),
-    path("api/floods_point/", include("core.flood_point_registering.presentation.urls"))
+    path(
+        "api/floods_point/", include("core.flood_point_registering.presentation.urls")
+    ),
 ]
 
 if settings.DEBUG:
