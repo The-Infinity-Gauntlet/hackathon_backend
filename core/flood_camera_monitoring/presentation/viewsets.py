@@ -47,6 +47,10 @@ from django.http import Http404
 import time
 import subprocess
 import shlex
+from core.flood_camera_monitoring.infra.utils import (
+    resolve_checkpoint_path,
+    looks_like_lfs_pointer,
+)
 
 
 class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
@@ -63,27 +67,7 @@ class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
     }
     default_ordering = "description"
 
-    def post(self, request, *args, **kwargs):
-        serializer = StreamSnapshotSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        clf = build_default_classifier()
-        stream = OpenCVVideoStream(data["stream_url"])  # implements VideoStreamPort
-        service = DetectFloodSnapshotFromStream(classifier=clf, stream=stream)
-        try:
-            res = service.execute(
-                SnapshotDetectRequest(
-                    timeout_seconds=float(data.get("timeout_seconds", 5.0))
-                )
-            )
-        except TimeoutError:
-            return Response(
-                {"detail": "Could not capture frame"},
-                status=status.HTTP_504_GATEWAY_TIMEOUT,
-            )
-
-        return Response(build_prediction_payload(res))
+    # Legacy POST handler removed; use explicit actions below
 
     @action(detail=False, methods=["get"], url_path="predict/all")
     def predict_all(self, request):
@@ -247,30 +231,7 @@ class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
         return paginator.get_paginated_response(data_out)
 
 
-class StreamBatchDetectView(APIView):
-    """HTTP endpoint: executa N iterações rápidas e retorna a lista de resultados."""
-
-    def post(self, request, *args, **kwargs):
-        serializer = StreamBatchSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        clf = build_default_classifier()
-        stream = OpenCVVideoStream(data["stream_url"])  # VideoStreamPort
-        service = DetectFloodFromStream(classifier=clf, stream=stream)
-        req = StreamDetectRequest(
-            stream_url=data["stream_url"],
-            interval_seconds=float(data.get("interval_seconds", 2.0)),
-            max_iterations=int(data.get("max_iterations", 3)),
-        )
-
-        results = [build_prediction_payload(res) for res in service.run(req)]
-
-        return Response(
-            {
-                "results": results,
-            }
-        )
+## Removed duplicate StreamBatchDetectView; use ViewSet action predict/batch
 
 
 # =====================
@@ -413,26 +374,7 @@ class HealthcheckView(APIView):
 
     def get(self, request, *args, **kwargs):
         # 1) Modelo
-        env_path = os.getenv("FLOOD_MODEL_PATH")
-        if env_path:
-            checkpoint_path = Path(env_path)
-        else:
-            # Match the default used in build_default_classifier():
-            # core/flood_camera_monitoring/infra/machine_model/best_real_model.pth
-            checkpoint_path = (
-                Path(__file__).resolve().parents[1]
-                / "infra"
-                / "machine_model"
-                / "best_real_model.pth"
-            )
-
-        def looks_like_lfs_pointer(p: Path) -> bool:
-            try:
-                with p.open("rb") as fh:
-                    head = fh.read(256)
-                return head.startswith(b"version https://git-lfs.github.com")
-            except Exception:
-                return False
+        checkpoint_path = resolve_checkpoint_path()
 
         model_exists = checkpoint_path.exists() and checkpoint_path.is_file()
         model_size = 0
