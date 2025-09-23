@@ -7,7 +7,11 @@ implementation lives in adapters/gateways, following clean architecture.
 from pathlib import Path
 from typing import Union
 import os
-import gdown
+import logging
+from core.flood_camera_monitoring.infra.utils import (
+    resolve_checkpoint_path,
+    looks_like_lfs_pointer,
+)
 
 from core.flood_camera_monitoring.adapters.gateways.torch_classifier_adapter import (
     TorchFloodClassifier as TorchFloodClassifier,
@@ -30,28 +34,12 @@ def build_default_classifier(
 
     # Choose path from args, env or default
     if checkpoint_path is None:
-        env_path = os.getenv("FLOOD_MODEL_PATH")
-        if env_path:
-            checkpoint_path = Path(env_path)
-        else:
-            checkpoint_path = (
-                Path(__file__).resolve().parent
-                / "machine_model"
-                / "best_real_model.pth"
-            )
+        checkpoint_path = resolve_checkpoint_path()
     else:
         checkpoint_path = Path(str(checkpoint_path))
 
     # Ensure folder exists
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def _looks_like_lfs_pointer(p: Path) -> bool:
-        try:
-            with p.open("rb") as fh:
-                head = fh.read(256)
-            return head.startswith(b"version https://git-lfs.github.com")
-        except Exception:
-            return False
 
     needs_download = False
     if not checkpoint_path.exists() or checkpoint_path.is_dir():
@@ -61,8 +49,8 @@ def build_default_classifier(
             size = checkpoint_path.stat().st_size
         except Exception:
             size = 0
-        if _looks_like_lfs_pointer(checkpoint_path) or size < 1024 * 1024:  # <1MB
-            needs_download = True
+    if looks_like_lfs_pointer(checkpoint_path) or size < 1024 * 1024:  # <1MB
+        needs_download = True
 
     if needs_download:
         # Prefer full URL from env; otherwise, build from Google Drive ID
@@ -81,7 +69,24 @@ def build_default_classifier(
                 checkpoint_path.unlink()
         except Exception:
             pass
-        # Download model
-        gdown.download(url, str(checkpoint_path), quiet=False)
+        # Download model using gdown if available, otherwise fallback to requests
+        try:
+            try:
+                import gdown  # type: ignore
+
+                logging.getLogger(__name__).info("Downloading model via gdown: %s", url)
+                gdown.download(url, str(checkpoint_path), quiet=False)
+            except Exception:
+                import requests
+
+                logging.getLogger(__name__).info("Downloading model via HTTP: %s", url)
+                with requests.get(url, stream=True, timeout=60) as r:  # type: ignore
+                    r.raise_for_status()
+                    with open(checkpoint_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+        except Exception as e:
+            logging.getLogger(__name__).error("Failed to download checkpoint: %s", e)
 
     return TorchFloodClassifier(str(checkpoint_path), device=device)

@@ -16,7 +16,7 @@ class Flood_Point_Register:
     """
 
     id: Optional[int] = None
-    region: Any = None
+    city: Any = None
     neighborhood: Any = None
     possibility: float = 0.0
     created_at: Optional[datetime] = None

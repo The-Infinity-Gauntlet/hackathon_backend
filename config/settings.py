@@ -39,6 +39,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "corsheaders",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -61,6 +62,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # CORS must be as high as possible, especially before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -233,3 +236,22 @@ SIMPLE_JWT = {
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+
+CSRF_TRUSTED_ORIGINS = [
+    # Subdomínios de fexcompany.me
+    "https://*.fexcompany.me",
+    # Subdomínios de fabricadesoftware.ifc.edu.br
+    "https://*.fabricadesoftware.ifc.edu.br",
+    # Front-end local
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Frontend em desenvolvimento
+    "http://localhost:3000",
+    "https://*.fexcompany.me",
+    "https://*.fabricadesoftware.ifc.edu.br",
+]

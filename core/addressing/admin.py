@@ -1,5 +1,5 @@
 from django.contrib import admin
-from core.addressing.infra.models import Address, Neighborhood, Region
+from core.addressing.infra.models import Address, Neighborhood, Region, City
 
 
 @admin.register(Address)
@@ -33,3 +33,9 @@ class RegionAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "city", "updated_at")
     search_fields = ("name", "city")
     list_filter = ("city",)
+
+
+@admin.register(City)
+class CityAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "created_at", "updated_at")
+    search_fields = ("name",)
