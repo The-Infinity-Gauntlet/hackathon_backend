@@ -41,13 +41,22 @@ class AnalyzeAllCamerasService:
 
     def run(self) -> int:
         """
-        Analyze all ACTIVE cameras and persist a record with the captured image
-        only when flood is predicted with confidence >= min_confidence.
-        Returns the number of records saved.
+        Backward-compatible entrypoint: run analysis and return only the count
+        of persisted records. Delegates to run_and_collect().
+        """
+        _, saved = self.run_and_collect()
+        return saved
+
+    def run_and_collect(self) -> tuple[list[dict], int]:
+        """
+        Analyze all ACTIVE cameras and persist alerts when criteria are met.
+        Returns (data, saved), where `data` is a list of per-camera results for
+        caching/inspection and `saved` is the number of DB records created.
         """
         logger = logging.getLogger(__name__)
         saved = 0
         rows = []  # collect per-câmera resultados para imprimir tabela ao final
+        data: list[dict] = []
         clf = build_default_classifier()
 
         for cam in Camera.objects.filter(status=Camera.CameraStatus.ACTIVE).iterator():
@@ -202,11 +211,19 @@ class AnalyzeAllCamerasService:
                 saved += 1
                 status = "FLOOD_SAVE"
                 logger.info(
-                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
-                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
-                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
-                    f"best_conf={float(decision_flooded):.2f} | frames={len(assessments)} | "
-                    f"threshold={float(self.strong_min):.2f}"
+                    (
+                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
+                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
+                    ),
+                    getattr(cam, "id", None),
+                    status,
+                    best_flooded,
+                    mean_flooded,
+                    mean_normal,
+                    mean_medium,
+                    float(decision_flooded),
+                    len(assessments),
+                    float(self.strong_min),
                 )
             elif medium_condition:
                 # Persist early-warning record (medium)
@@ -249,19 +266,37 @@ class AnalyzeAllCamerasService:
                 saved += 1
                 status = "MEDIUM_SAVE"
                 logger.info(
-                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
-                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
-                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
-                    f"frames={len(assessments)} | criteria={{band:{medium_band},count:{medium_frames},trend:{rising_trend}}}"
+                    (
+                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
+                        "mean_normal=%.2f | mean_medium=%.2f | frames=%d | criteria={band:%s,count:%d,trend:%s}"
+                    ),
+                    getattr(cam, "id", None),
+                    status,
+                    best_flooded,
+                    mean_flooded,
+                    mean_normal,
+                    mean_medium,
+                    len(assessments),
+                    str(medium_band),
+                    medium_frames,
+                    str(rising_trend),
                 )
             else:
                 status = "NO_FLOOD"
                 logger.info(
-                    f"Camera id={getattr(cam, 'id', None)} result: {status} | "
-                    f"best_flooded={best_flooded:.2f} | mean_flooded={mean_flooded:.2f} | "
-                    f"mean_normal={mean_normal:.2f} | mean_medium={mean_medium:.2f} | "
-                    f"best_conf={float(decision_flooded):.2f} | frames={len(assessments)} | "
-                    f"threshold={float(self.strong_min):.2f}"
+                    (
+                        "Camera id=%s result: %s | best_flooded=%.2f | mean_flooded=%.2f | "
+                        "mean_normal=%.2f | mean_medium=%.2f | best_conf=%.2f | frames=%d | threshold=%.2f"
+                    ),
+                    getattr(cam, "id", None),
+                    status,
+                    best_flooded,
+                    mean_flooded,
+                    mean_normal,
+                    mean_medium,
+                    float(decision_flooded),
+                    len(assessments),
+                    float(self.strong_min),
                 )
 
             camera_label = f"({getattr(cam, 'description', '')})".strip()
@@ -277,6 +312,30 @@ class AnalyzeAllCamerasService:
                     f"{mean_medium:.2f}",
                 )
             )
+
+            # Append structured result for this camera
+            try:
+                data.append(
+                    {
+                        "camera": {
+                            "id": str(getattr(cam, "id", "")),
+                            "description": getattr(cam, "description", ""),
+                            "video_hls": getattr(cam, "video_hls", ""),
+                        },
+                        "status": status,
+                        "is_flooded": bool(strong),
+                        "medium": bool(medium_condition and not strong),
+                        "confidence": float(max(decision_flooded, decision_medium)),
+                        "probabilities": {
+                            "normal": float(mean_normal),
+                            "flooded": float(mean_flooded),
+                            "medium": float(mean_medium),
+                        },
+                    }
+                )
+            except Exception:
+                # best-effort: ignore data collection errors
+                pass
 
         # Imprime uma tabela de resumo ao final
         try:
@@ -297,7 +356,7 @@ class AnalyzeAllCamerasService:
         except Exception:
             logger.exception("Falha ao montar tabela de resumo")
 
-        return saved
+        return data, saved
 
     @staticmethod
     def _format_table(headers, rows, max_widths=None) -> str:
@@ -305,29 +364,29 @@ class AnalyzeAllCamerasService:
         max_widths: dict opcional com largura máxima por coluna (pelo header)
         """
         max_widths = max_widths or {}
-        headers = list(headers)
-        ncols = len(headers)
-        if ncols == 0:
+        headers = list(headers or [])
+        if not headers:
             return ""
 
-        # Calcula larguras
+        # Calcula larguras com segurança para linhas menores/maiores que headers
         widths = [len(str(h)) for h in headers]
         for r in rows:
-            # Ajusta por índice; tolera linhas menores/maiores
-            for i in range(ncols):
-                cell_str = str(r[i]) if i < len(r) else ""
-                col_name = headers[i]
-                limit = max_widths.get(col_name)
+            cols = min(len(headers), len(r))
+            for i in range(cols):
+                cell_str = str(r[i])
+                col_name = headers[i] if i < len(headers) else None
+                limit = max_widths.get(col_name, None) if col_name is not None else None
                 if limit and len(cell_str) > limit:
                     cell_str = cell_str[: max(0, limit - 1)] + "…"
                 widths[i] = max(widths[i], len(cell_str))
 
         def fmt_row(vals):
             out = []
-            for i in range(ncols):
-                s = str(vals[i]) if i < len(vals) else ""
-                col_name = headers[i]
-                limit = max_widths.get(col_name)
+            cols = min(len(headers), len(vals))
+            for i in range(cols):
+                s = str(vals[i])
+                col_name = headers[i] if i < len(headers) else None
+                limit = max_widths.get(col_name, None) if col_name is not None else None
                 if limit and len(s) > limit:
                     s = s[: max(0, limit - 1)] + "…"
                 out.append(s.ljust(widths[i]))
