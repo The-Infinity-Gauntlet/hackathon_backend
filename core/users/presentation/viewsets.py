@@ -10,6 +10,7 @@ from core.users.infra.models import User as DjangoUser
 from core.users.presentation.auth_views import generate_tokens_for_user
 from core.uploader.infra.django_storage_uploader import DjangoStorageUploader
 from core.uploader.application.services import UploadBinaryService
+from core.users.presentation.permissions import IsAdmin
 
 
 class UsersViewSet(viewsets.ViewSet):
@@ -18,6 +19,7 @@ class UsersViewSet(viewsets.ViewSet):
     Routes:
       - POST /users/signup
       - GET  /users/me
+    - GET  /users/admin-only  (exemplo; protegido por IsAdmin)
     """
 
     permission_classes = [permissions.AllowAny]
@@ -73,3 +75,12 @@ class UsersViewSet(viewsets.ViewSet):
             "profile_picture": u.profile_picture,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="admin-only",
+        permission_classes=[IsAdmin],
+    )
+    def admin_only(self, request):
+        return Response({"detail": "OK (admin)"}, status=status.HTTP_200_OK)

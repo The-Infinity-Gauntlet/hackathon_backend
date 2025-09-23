@@ -5,9 +5,11 @@ from core.flood_point_registering.infra.models import Flood_Point_Register
 from core.flood_point_registering.presentation.serializers.RegisterSerializer import (
     FloodPointRegisterSerializer,
 )
+from core.users.presentation.permissions import IsAdminOrReadOnly
 
 
 class FloodPointRegister(ModelViewSet):
+    permission_classes = [IsAdminOrReadOnly]
     queryset = Flood_Point_Register.objects.all()
     serializer_class = FloodPointRegisterSerializer
 

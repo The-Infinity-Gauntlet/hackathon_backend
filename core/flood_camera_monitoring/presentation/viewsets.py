@@ -51,6 +51,7 @@ from core.flood_camera_monitoring.infra.utils import (
     resolve_checkpoint_path,
     looks_like_lfs_pointer,
 )
+from core.users.presentation.permissions import IsAdminOrReadOnly, IsAdmin
 
 
 class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
@@ -123,7 +124,7 @@ class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
         page_items = paginator.paginate_queryset(data, request, view=self)
         return paginator.get_paginated_response(page_items)
 
-    @action(detail=False, methods=["post"], url_path="predict/snapshot")
+    @action(detail=False, methods=["post"], url_path="predict/snapshot", permission_classes=[IsAdmin])
     def predict_snapshot(self, request):
         serializer = StreamSnapshotSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -146,7 +147,7 @@ class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
 
         return Response(build_prediction_payload(res))
 
-    @action(detail=False, methods=["post"], url_path="predict/batch")
+    @action(detail=False, methods=["post"], url_path="predict/batch", permission_classes=[IsAdmin])
     def predict_batch(self, request):
         serializer = StreamBatchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -165,7 +166,7 @@ class FloodMonitoringViewSet(SafeOrderingMixin, viewsets.ViewSet):
 
         return Response({"results": results})
 
-    @action(detail=False, methods=["post"], url_path="analyze/all")
+    @action(detail=False, methods=["post"], url_path="analyze/all", permission_classes=[IsAdmin])
     def analyze_all(self, request):
         service = AnalyzeAllCamerasService()
         saved = service.run()

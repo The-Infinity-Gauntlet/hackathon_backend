@@ -7,6 +7,6 @@ router = DefaultRouter()
 router.register(r"foresee", ForecastViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
     path("forecasts/", PredictView.as_view(), name="forecasts"),
 ]

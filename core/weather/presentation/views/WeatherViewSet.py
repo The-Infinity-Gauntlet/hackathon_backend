@@ -8,9 +8,11 @@ from core.weather.app.services import WeatherService
 from core.weather.infra.repository import WeatherRepositoryImpl
 from rest_framework.response import Response
 from datetime import datetime
+from core.users.presentation.permissions import IsAdminOrReadOnly
 
 
 class WeatherViewSet(ModelViewSet):
+    permission_classes = [IsAdminOrReadOnly]
     queryset = Weather.objects.all()
     serializer_class = WeatherModelSerializer
 
