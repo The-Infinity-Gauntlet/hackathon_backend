@@ -35,6 +35,24 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+CSRF_TRUSTED_ORIGINS = [
+    # Subdomínios de fexcompany.me
+    "https://*.fexcompany.me",
+    # Subdomínios de fabricadesoftware.ifc.edu.br
+    "https://*.fabricadesoftware.ifc.edu.br",
+    # Front-end local
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Frontend em desenvolvimento
+    "http://localhost:3000",
+    "https://*.fexcompany.me",
+    "https://*.fabricadesoftware.ifc.edu.br",
+]
+
 
 # Application definition
 
@@ -236,22 +254,3 @@ SIMPLE_JWT = {
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-
-
-CSRF_TRUSTED_ORIGINS = [
-    # Subdomínios de fexcompany.me
-    "https://*.fexcompany.me",
-    # Subdomínios de fabricadesoftware.ifc.edu.br
-    "https://*.fabricadesoftware.ifc.edu.br",
-    # Front-end local
-    "http://localhost:8000",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Frontend em desenvolvimento
-    "http://localhost:3000",
-    "https://*.fexcompany.me",
-    "https://*.fabricadesoftware.ifc.edu.br",
-]
