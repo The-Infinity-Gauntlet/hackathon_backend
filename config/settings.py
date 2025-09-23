@@ -169,6 +169,9 @@ APPEND_SPLASH = True
 
 STATIC_URL = "static/"
 
+# Where collectstatic will gather static files (required for builds/production)
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 # Media (uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
