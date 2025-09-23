@@ -44,12 +44,13 @@ def build_default_classifier(
     needs_download = False
     if not checkpoint_path.exists() or checkpoint_path.is_dir():
         needs_download = True
+        size = 0
     else:
         try:
             size = checkpoint_path.stat().st_size
         except Exception:
             size = 0
-    if looks_like_lfs_pointer(checkpoint_path) or size < 1024 * 1024:  # <1MB
+    if looks_like_lfs_pointer(checkpoint_path) or size < 1024 * 1024:
         needs_download = True
 
     if needs_download:
@@ -61,7 +62,6 @@ def build_default_classifier(
         if not url:
             drive_id = os.getenv(
                 "FLOOD_MODEL_DRIVE_ID",
-                "1S7sy4Ug6ypF2yG03ZODsAcTTsgKQMt18",
             )
             url = f"https://drive.google.com/uc?export=download&id={drive_id}"
         try:
