@@ -19,7 +19,9 @@ class DetectFloodFromStream:
     classifier: FloodClassifierPort
     stream: VideoStreamPort
 
-    def run(self, request: StreamDetectRequest) -> Generator[PredictResponse, None, None]:
+    def run(
+        self, request: StreamDetectRequest
+    ) -> Generator[PredictResponse, None, None]:
         """Itera realizando predições em frames capturados periodicamente.
 
         Gera PredictResponse a cada iteração bem-sucedida de captura+classificação.
@@ -28,7 +30,10 @@ class DetectFloodFromStream:
         try:
             while self.stream.is_open():
                 # Max loops guard
-                if request.max_iterations is not None and iterations >= request.max_iterations:
+                if (
+                    request.max_iterations is not None
+                    and iterations >= request.max_iterations
+                ):
                     break
 
                 frame = self.stream.grab()
@@ -36,6 +41,7 @@ class DetectFloodFromStream:
                     assessment = self.classifier.predict(frame)
                     yield PredictResponse(
                         is_flooded=assessment.is_flooded,
+                        severity=getattr(assessment, "severity", None),
                         confidence=assessment.confidence,
                         probabilities=assessment.probabilities,
                         meta={**request.meta, "iteration": iterations},

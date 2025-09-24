@@ -61,12 +61,19 @@ class FloodProbabilities:
     medium: float
 
 
+class FloodSeverity(Enum):
+    NORMAL = "normal"
+    MEDIUM = "medium"
+    FLOODED = "flooded"
+
+
 @dataclass(frozen=True)
 class FloodAssessment:
     """Resultado essencial de uma avaliação de alagamento no domínio."""
 
     confidence: float  # 0..100
     is_flooded: bool
+    severity: FloodSeverity
     probabilities: FloodProbabilities
 
 

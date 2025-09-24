@@ -1,2 +1,1 @@
-*.pth filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
+# (intentionally empty) — Git LFS disabled for this repo

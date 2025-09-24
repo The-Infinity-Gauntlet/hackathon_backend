@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 from celery.schedules import crontab
@@ -47,13 +48,14 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "rest_framework",
     "core",
+    "core.users",
     "core.weather",
     "core.occurrences",
     "core.forecast",
     "core.flood_camera_monitoring",
     "core.uploader",
     "core.addressing",
-    "core.flood_point_registering"
+    "core.flood_point_registering",
 ]
 
 
@@ -90,31 +92,22 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Allow selecting DB engine by env. Defaults to SQLite for local/dev simplicity.
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+# Prefer DATABASE_URL; if missing, build from POSTGRES_* env vars; else fallback to sqlite
+_db_url = os.getenv("DATABASE_URL")
+if not _db_url:
+    _pg_user = os.getenv("POSTGRES_USER")
+    _pg_pass = os.getenv("POSTGRES_PASSWORD")
+    _pg_db = os.getenv("POSTGRES_DB")
+    _pg_host = os.getenv("POSTGRES_HOST", "db")
+    _pg_port = os.getenv("POSTGRES_PORT", "5432")
+    if _pg_user and _pg_pass and _pg_db:
+        _db_url = f"postgresql://{_pg_user}:{_pg_pass}@{_pg_host}:{_pg_port}/{_pg_db}"
 
-if DB_ENGINE == "postgres":
-    # PostgreSQL configuration via env, matching docker-compose defaults
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME", "hackathon"),
-            "USER": os.getenv("DB_USER", "hackathon"),
-            "PASSWORD": os.getenv("DB_PASSWORD", "hackathon123"),
-            "HOST": os.getenv("DB_HOST", "db"),
-            "PORT": os.getenv("DB_PORT", "5432"),
-        }
-    }
-else:
-    # SQLite (default)
-    # Allow overriding the SQLite file path via env (useful to bind a named volume in Docker)
-    DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", str(BASE_DIR / "db.sqlite3"))
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": DB_SQLITE_PATH,
-        }
-    }
+DATABASES = {
+    "default": dj_database_url.config(
+        default=_db_url or f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+    )
+}
 
 
 # Password validation
@@ -146,6 +139,8 @@ TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 
 USE_TZ = True
+
+APPEND_SPLASH = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -202,4 +197,39 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+# Custom: Public link to camera installation instructions/UI
+# Read from environment variable CAMERA_INSTALL_URL; defaults to empty string if not set
+CAMERA_INSTALL_URL = os.getenv("CAMERA_INSTALL_URL", "")
+
+# Redis URL dedicated for application cache (separate DB from Celery broker/results).
+# Defaults to DB 2 on the same Redis host.
+REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://redis:6379/2")
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPageNumberPagination",
+    # Default page size, can be overridden via ?page_size= and capped by paginator
+    "PAGE_SIZE": int(os.getenv("API_PAGE_SIZE", "20")),
+    # Use SimpleJWT with custom user resolver
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "core.users.presentation.auth.AppJWTAuthentication",
+    ),
+}
+
+# djangorestframework-simplejwt configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_MINUTES", "60"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "7"))),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }

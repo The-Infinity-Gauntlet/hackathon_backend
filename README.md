@@ -47,3 +47,17 @@ The best checkpoint is copied to core/flood_camera_monitoring/infra/machine_mode
 - ./aqua smoke
 - ./aqua status
 - ./aqua clean
+
+## Configuration: Camera installation URL
+
+Expose a link for installing/adding cameras in API responses by setting an environment variable:
+
+- CAMERA_INSTALL_URL="https://your-portal.example.com/install-camera"
+
+When set, the following endpoints include `camera_install_url` in the JSON:
+
+- GET /api/flood_monitoring/predict/all
+- POST /api/flood_monitoring/stream/snapshot
+- POST /api/flood_monitoring/stream/batch
+- POST /api/flood_monitoring/analyze/run
+- GET /api/flood_monitoring/cameras

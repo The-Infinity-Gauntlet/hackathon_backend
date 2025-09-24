@@ -12,15 +12,19 @@ class Camera(models.Model):
     status = models.IntegerField(
         choices=CameraStatus.choices, default=CameraStatus.OFFLINE
     )
-    video_url = models.CharField(max_length=512, unique=True)
+    video_hls = models.CharField(max_length=512, blank=True, null=True)
+    video_embed = models.CharField(max_length=512, blank=True, null=True)
     description = models.CharField(max_length=255, blank=True)
-    address = models.ForeignKey(
-        "addressing.Address",
+    # Neighborhood is now a FK to Addressing.Neighborhood
+    neighborhood = models.ForeignKey(
+        "addressing.Neighborhood",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="cameras",
     )
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
