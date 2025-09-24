@@ -1,12 +1,16 @@
-from core.donation.infra.repository import MercadoPagoRepository
+from core.donation.infra.repository import MercadoPagoRepository, MercadoPagoWebhookRepository
 from core.donation.app.services import DonationService
 from core.donation.domain.entities import Payment, Card
 from django.views.decorators.csrf import csrf_exempt
 from django.http.response import JsonResponse
+from rest_framework.response import Response
+from rest_framework import status
 import json
 
 repo = MercadoPagoRepository()
+repoWebhook = MercadoPagoWebhookRepository()
 service = DonationService(repository=repo)
+serviceWebhook = DonationService(repository=repoWebhook)
 
 @csrf_exempt
 def paymentPix(request):
@@ -79,3 +83,13 @@ def savedCard(request):
         result = service.save_card(card)
         return result
     return JsonResponse({"error": "Method not allowed"})
+
+@csrf_exempt
+def createWebhook(request):
+    try:
+        webhook_data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    result = serviceWebhook.create_webhook(webhook_data)
+    return JsonResponse(result, status=200)
