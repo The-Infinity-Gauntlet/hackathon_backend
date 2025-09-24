@@ -1,6 +1,9 @@
 import os, uuid
 from django.http import JsonResponse, HttpResponseServerError
 from core.donation.domain.entities import Payment
+from core.donation.domain.repository import DonationRepository
+
+payment_status = {}
 
 
 class MercadoPagoRepository:
@@ -111,3 +114,29 @@ class MercadoPagoRepository:
         card_response = self.sdk.card().create(customer["id"], card_data)
         card = card_response["response"]
         return JsonResponse(card, safe=False)
+    
+class MercadoPagoWebhookRepository(DonationRepository):
+    def payment_with_pix(self, donation: Payment):
+        raise NotImplementedError("Este repo não implementa pagamentos.")
+
+    def payment_with_card(self, donation: Payment):
+        raise NotImplementedError("Este repo não implementa pagamentos.")
+
+    def payment_with_ticket(self, donation: Payment):
+        raise NotImplementedError("Este repo não implementa pagamentos.")
+
+    def saved_card(self, donation: Payment):
+        raise NotImplementedError("Este repo não implementa pagamentos.")
+
+    def createWebhook(self, data: dict):
+        payment_data = data.get("data", {})
+        payment_id = payment_data.get("id")
+        status = data.get("data", {}).get("status")
+
+        if payment_id and status:
+            payment_status[payment_id] = status
+            print(f"[Webhook] Pagamento {payment_id} com status {status} recebido")
+        else:
+            print("[Webhook] Dados incompletos recebidos")
+        
+        return {"payment_id": payment_id, "status": payment_status}
