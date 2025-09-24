@@ -35,7 +35,10 @@ def paymentPix(request):
             identification_number=data["payer"]["identification"]["number"],
         )
         result = service.pay_with_pix(payment)
-        return result
+        result_data = json.loads(result.content)
+        print("Dados da resposta: ", result_data)
+        payment_status[result_data['id']] = result_data['status']
+        return JsonResponse(result_data, safe=False)
     return JsonResponse({"error": "Method not allowed"})
 
 
@@ -118,7 +121,13 @@ def createWebhook(request):
 
 @csrf_exempt
 def getStatus(request, payment_id):
-    status = payment_status.get(payment_id)
-    if status:
-        return JsonResponse({"payment_id": payment_id, "status": status})
-    return JsonResponse({"error": "Pagamento não encontrado"}, status=404)
+    #status = payment_status.get(payment_id)
+    #if status:
+        #return JsonResponse({"payment_id": payment_id, "status": status})
+    #return JsonResponse({"error": "Pagamento não encontrado"}, status=404)
+    try:
+        mp_repo = MercadoPagoRepository()
+        payment = mp_repo.sdk.payment().get(payment_id)
+        return JsonResponse(payment["response"])
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
