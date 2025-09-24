@@ -1,4 +1,4 @@
-from core.donation.infra.repository import MercadoPagoRepository, MercadoPagoWebhookRepository
+from core.donation.infra.repository import MercadoPagoRepository, MercadoPagoWebhookRepository, payment_status
 from core.donation.app.services import DonationService
 from core.donation.domain.entities import Payment, Card
 from django.views.decorators.csrf import csrf_exempt
@@ -115,3 +115,10 @@ def createWebhook(request):
     
     result = serviceWebhook.create_webhook(webhook_data)
     return JsonResponse(result, status=200)
+
+@csrf_exempt
+def getStatus(request, payment_id):
+    status = payment_status.get(payment_id)
+    if status:
+        return JsonResponse({"payment_id": payment_id, "status": status})
+    return JsonResponse({"error": "Pagamento não encontrado"}, status=404)
