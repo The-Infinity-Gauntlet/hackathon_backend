@@ -44,6 +44,7 @@ distribution = false
 
 [tool.pdm.scripts]
 dev = "python manage.py runserver"
+demo = python manage.py migrate && python manage.py prewarm_hls
 migrate = "python manage.py migrate"
 makemigrations = "python manage.py makemigrations"
 createsuperuser = "python manage.py createsuperuser"
