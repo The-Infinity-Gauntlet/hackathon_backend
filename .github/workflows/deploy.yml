@@ -17,6 +17,6 @@ jobs:
       - name: Push to dokku
         uses: dokku/github-action@master
         with:
-          git_remote_url: 'ssh://dokku@app2.fabricadesoftware.ifc.edu.br:1022/michas-hackas-backend'
+          git_remote_url: 'ssh://dokku@app2.fabricadesoftware.ifc.edu.br:1022/aquaapi'
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           branch: main
