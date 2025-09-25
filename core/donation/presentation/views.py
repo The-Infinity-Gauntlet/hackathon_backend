@@ -1,10 +1,16 @@
-from core.donation.infra.repository import MercadoPagoRepository
+from core.donation.infra.repository import MercadoPagoRepository, MercadoPagoWebhookRepository, payment_status
 from core.donation.app.services import DonationService
 from core.donation.domain.entities import Payment, Card
 from django.views.decorators.csrf import csrf_exempt
 from django.http.response import JsonResponse
+from rest_framework.response import Response
+from rest_framework import status
 import json
 
+repo = MercadoPagoRepository()
+repoWebhook = MercadoPagoWebhookRepository()
+service = DonationService(repository=repo)
+serviceWebhook = DonationService(repository=repoWebhook)
 
 def _get_service():
     try:
@@ -12,7 +18,6 @@ def _get_service():
         return DonationService(repository=repo)
     except RuntimeError as e:
         return None
-
 
 @csrf_exempt
 def paymentPix(request):
@@ -30,7 +35,10 @@ def paymentPix(request):
             identification_number=data["payer"]["identification"]["number"],
         )
         result = service.pay_with_pix(payment)
-        return result
+        result_data = json.loads(result.content)
+        print("Dados da resposta: ", result_data)
+        payment_status[result_data['id']] = result_data['status']
+        return JsonResponse(result_data, safe=False)
     return JsonResponse({"error": "Method not allowed"})
 
 
@@ -100,3 +108,26 @@ def savedCard(request):
         result = service.save_card(card)
         return result
     return JsonResponse({"error": "Method not allowed"})
+
+@csrf_exempt
+def createWebhook(request):
+    try:
+        webhook_data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    result = serviceWebhook.create_webhook(webhook_data)
+    return JsonResponse(result, status=200)
+
+@csrf_exempt
+def getStatus(request, payment_id):
+    #status = payment_status.get(payment_id)
+    #if status:
+        #return JsonResponse({"payment_id": payment_id, "status": status})
+    #return JsonResponse({"error": "Pagamento não encontrado"}, status=404)
+    try:
+        mp_repo = MercadoPagoRepository()
+        payment = mp_repo.sdk.payment().get(payment_id)
+        return JsonResponse(payment["response"])
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

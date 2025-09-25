@@ -16,3 +16,6 @@ class DonationService:
     
     def save_card(self, payment: Payment):
         return self.repository.saved_card(payment)
+    
+    def create_webhook(self, data: dict):
+        return self.repository.createWebhook(data)
