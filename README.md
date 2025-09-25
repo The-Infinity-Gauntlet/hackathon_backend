@@ -61,3 +61,5 @@ When set, the following endpoints include `camera_install_url` in the JSON:
 - POST /api/flood_monitoring/stream/batch
 - POST /api/flood_monitoring/analyze/run
 - GET /api/flood_monitoring/cameras
+
+
