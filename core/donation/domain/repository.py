@@ -17,3 +17,7 @@ class DonationRepository(ABC):
     @abstractmethod
     def saved_card(self, donation: Payment):
         pass
+
+    @abstractmethod
+    def createWebhook(self, data: dict):
+        pass
