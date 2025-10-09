@@ -2,7 +2,7 @@ from core.weather.domain.repository import WeatherRepository
 from core.weather.infra.models import Weather
 from core.weather.infra.services.weather import fillClimate as fillClimateService, fillElevation, fillFutureClimate, fillFlood
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 today = date.today()
 forecast_start = today - timedelta(days=3)
@@ -10,7 +10,12 @@ forecast_end = today + timedelta(days=7)
 
 class WeatherRepositoryImpl(WeatherRepository):
     def fillAll(self, lat, lon, neighborhood, start, end):
-        weather = self.fillWeather(lat, lon, start, min(end, today))
+        if isinstance(start, str):
+            start = datetime.strptime(start, "%Y-%m-%d").date()
+        if isinstance(end, str):
+            end = datetime.strptime(end, "%Y-%m-%d").date()
+        end = end
+        weather = self.fillWeather(lat, lon, start, today)
         future = self.fillFutureWeather(lat, lon)
         flood = self.fillFlood(lat, lon)
         elevation = self.fillElevation(lat, lon)
@@ -18,26 +23,30 @@ class WeatherRepositoryImpl(WeatherRepository):
 
         all_days = weather["days"] + future["days"]
         for i, day in enumerate(all_days):
-            if i > len(weather["days"]):
-                source = future
-                idx = i - len(weather["days"])
-            else:
+            if i < len(weather["days"]):
                 source = weather
                 idx = i
+            else:
+                source = future
+                idx = i - len(weather["days"])
 
-        for i in range(len(weather["days"])): # para cada dia
+            def safe_get(arr, idx, default=0):
+                if arr is None:
+                    return default
+                return arr[idx] if idx < len(arr) else default
+
             climates.append(
                 Weather(
                     date=day,
                     neighborhood=neighborhood,
                     latitude=lat,
                     longitude=lon,
-                    rain=source.get("rain", [None]*len(weather["days"]))[i] or future.get("rain", [None]*len(future["days"]))[i] or 0, # se não tiver "rain", retorne None para cada dia
-                    temperature=source.get("temperature", [None]*len(source["days"]))[i] or future.get("temperature", [None]*len(future["days"]))[i] or 0,
-                    humidity=source.get("humidity", [None]*len(source["days"]))[i] or future.get("humidity", [None]*len(future["days"]))[i] or 0,
+                    rain=safe_get(source.get("rain"), idx, safe_get(future.get("rain"), i)), # se não tiver "rain", retorne None para cada dia
+                    temperature=safe_get(source.get("temperature"), idx, safe_get(future.get("temperature"), i)),
+                    humidity=safe_get(source.get("humidity"), idx, safe_get(future.get("humidity"), i)),
                     elevation=elevation.get("elevation"),
-                    pressure=source.get("pressure", [None]*len(weather["days"]))[i] or future.get("pressure", [None]*len(future["days"]))[i] or 0,
-                    river_discharge=flood.get("river_discharge", [None]*len(weather["days"]))[i] or 0
+                    pressure=safe_get(source.get("pressure"), idx, safe_get(future.get("pressure"), i)),
+                    river_discharge=safe_get(flood.get("river_discharge"), idx)
                 )
             )
         
