@@ -92,7 +92,7 @@ def runForecast(repo: MachineLearningRepository): # Aqui é onde realmente acont
 
     df_future = df_future.reset_index(drop=True)
     df_future['probability'] = Y_proba
-    df_future['prob_percentile'] = df_future['probability'.rank(pct=True)]
+    df_future['prob_percentile'] = df_future['probability'].rank(pct=True)
 
     for i, row in enumerate(df_future.itertuples(index=False)):
         Forecast.objects.update_or_create(
