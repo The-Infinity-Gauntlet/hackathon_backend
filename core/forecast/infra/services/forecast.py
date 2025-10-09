@@ -2,12 +2,13 @@ from core.forecast.domain.repository import MachineLearningRepository
 from core.forecast.infra.models import Forecast
 from core.occurrences.infra.models import Occurrence
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.calibration import CalibratedClassifierCV
 from imblearn.over_sampling import SMOTE
-
+from imblearn.combine import SMOTEENN
 import pandas as pd
+import numpy as np
 
 def runForecast(repo: MachineLearningRepository): # Aqui é onde realmente acontece a previsão com IA
     # Treinamento
@@ -51,28 +52,29 @@ def runForecast(repo: MachineLearningRepository): # Aqui é onde realmente acont
     df["flood"] = df.apply(
         lambda row: 1 if ((occurrences["neighborhood"] == row["neighborhood"]) & 
                           (occurrences["date"] == row["date"])).any() or 
-                          (row.rain > 10 and row.humidity > 60 and row.elevation < 10)
+                          (row.rain > 1.5 and row.humidity > 50 and row.elevation < 15)
                           else 0,
         axis=1
     )
-    print(df["flood"])
+    new_df = df.copy()
+    new_df[["rain", "temperature", "humidity", "pressure"]] += np.random.normal(0, 0.075, new_df[["rain", "temperature", "humidity", "pressure"]].shape)
     features = ["rain", "temperature", "humidity", "pressure", "elevation"]
     X = df[features].values
     Y = df["flood"].values # Aqui ele vai preencher os climas que estiverem sem registro de alagamento com NaN
 
-    scaler = StandardScaler() # Padronizador
+    scaler = MinMaxScaler() # Padronizador
     X_scaled = scaler.fit_transform(X) # Treinar com base em X
-    X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.25) # Devolve variáveis de teste e de treinamento da IA com base no X padrão
+    X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.25, random_state=42) # Devolve variáveis de teste e de treinamento da IA com base no X padrão
 
     rf = RandomForestClassifier(
-        n_estimators=1000,
+        n_estimators=500,
         max_depth=None,
-        random_state=None,
+        random_state=42,
         max_features="sqrt",
-        class_weight="balanced"
+        class_weight={0: 1, 1: 1000}
     )
     clf = CalibratedClassifierCV(rf, cv=3, method="isotonic")
-    smote = SMOTE()
+    smote = SMOTEENN(smote=SMOTE(sampling_strategy=0.75, k_neighbors=15), random_state=42)
     X_res, Y_res = smote.fit_resample(X_train, Y_train)
     clf.fit(X_res, Y_res)
 
@@ -83,9 +85,14 @@ def runForecast(repo: MachineLearningRepository): # Aqui é onde realmente acont
 
     X_future = df_future[features].values
     X_future_scaled = scaler.transform(X_future)
+    X_future_scaled += np.random.normal(0, 0.0075, X_future_scaled.shape)
 
     Y_predict = clf.predict(X_future_scaled)
     Y_proba = clf.predict_proba(X_future_scaled)[:, 1]
+
+    df_future = df_future.reset_index(drop=True)
+    df_future['probability'] = Y_proba
+    df_future['prob_percentile'] = df_future['probability'.rank(pct=True)]
 
     for i, row in enumerate(df_future.itertuples(index=False)):
         Forecast.objects.update_or_create(

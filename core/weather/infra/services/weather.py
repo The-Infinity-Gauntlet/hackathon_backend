@@ -73,6 +73,13 @@ def fillFutureClimate(lat, lon, start, end, retries=3, wait=60):
             print(f"Erro inesperado na API: {data}")
             break
 
+    return {
+        "days": [],
+        "rain": [],
+        "temperature": [],
+        "humidity": []
+    }
+
 def fillFlood(lat: float, lon: float):
     url = f"https://flood-api.open-meteo.com/v1/flood"
     params = {
